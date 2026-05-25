@@ -1,0 +1,201 @@
+{
+  "users": [
+    {
+      "username": "matheus",
+      "displayName": "Matheus Pestana",
+      "bio": "Music enthusiast, amateur reviewer, and collector of vinyls. Always looking for new sounds.",
+      "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=matheus",
+      "favorites": {
+        "tracks": [
+          {
+            "id": "2Foc5QGx4Qug8Jb0gpc4Vs",
+            "name": "Get Lucky (feat. Pharrell Williams)",
+            "artist": "Daft Punk",
+            "image": "https://i.scdn.co/image/ab67616d0000b273b33d46dfa2635a88e775362b",
+            "type": "track"
+          },
+          {
+            "id": "629tFM5R52h4295DY57uN4",
+            "name": "LUNCH",
+            "artist": "Billie Eilish",
+            "image": "https://i.scdn.co/image/ab67616d0000b27371d26177bed92e7f67d4f901",
+            "type": "track"
+          },
+          {
+            "id": "3iVcZ5G6tv2jKpB5i80v7z",
+            "name": "Alright",
+            "artist": "Kendrick Lamar",
+            "image": "https://i.scdn.co/image/ab67616d0000b273cdb64ccaf008d6a2f44c688c",
+            "type": "track"
+          }
+        ],
+        "albums": [
+          {
+            "id": "4m28mG71g75n4wLVqp34vF",
+            "name": "Random Access Memories",
+            "artist": "Daft Punk",
+            "image": "https://i.scdn.co/image/ab67616d0000b273b33d46dfa2635a88e775362b",
+            "type": "album"
+          },
+          {
+            "id": "7aJuG4vIB7Y4zJ72cQj56c",
+            "name": "HIT ME HARD AND SOFT",
+            "artist": "Billie Eilish",
+            "image": "https://i.scdn.co/image/ab67616d0000b27371d26177bed92e7f67d4f901",
+            "type": "album"
+          },
+          {
+            "id": "0X22dVuwJtKnZDlie1Eln5",
+            "name": "EQUILIBRIVM",
+            "artist": "Anitta",
+            "image": "https://i.scdn.co/image/ab67616d0000b2738173497b91977fea7e2937cc",
+            "type": "album"
+          },
+          {
+            "id": "530bw7EzQLkhNq2zzD4ppi",
+            "name": "MOLHO (Ao Vivo)",
+            "artist": "Grupo Menos É Mais",
+            "image": "https://i.scdn.co/image/ab67616d0000b273c89ff3434d85f33354c929b8",
+            "type": "album"
+          }
+        ],
+        "artists": [
+          {
+            "id": "4tZwfgrHOc3XqG05hCg6rr",
+            "name": "Daft Punk",
+            "image": "https://i.scdn.co/image/ab6761610000e5ebde9284242636ebda5ef21df7",
+            "type": "artist"
+          },
+          {
+            "id": "6qqgmq12RLHgXM3q6Eb0r7",
+            "name": "Billie Eilish",
+            "image": "https://i.scdn.co/image/ab6761610000e5eb2d12e8736e65451ec646fb5a",
+            "type": "artist"
+          }
+        ]
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "id": "rev_1779720945172_151",
+      "username": "matheus",
+      "itemId": "6sHWMvDDdgNNvkJ7JHktdl",
+      "itemType": "track",
+      "itemName": "XTRANHO",
+      "itemArtist": "de Matuê, Brandão85",
+      "itemImage": "https://i.scdn.co/image/ab67616d0000b273f78ea8aae8a360d9def9e819",
+      "rating": 4.5,
+      "liked": false,
+      "reviewText": "mt trap",
+      "dateLogged": "2026-05-25"
+    },
+    {
+      "id": "rev_1",
+      "username": "matheus",
+      "itemId": "4m28mG71g75n4wLVqp34vF",
+      "itemType": "album",
+      "itemName": "Random Access Memories",
+      "itemArtist": "Daft Punk",
+      "itemImage": "https://i.scdn.co/image/ab67616d0000b273b33d46dfa2635a88e775362b",
+      "rating": 5,
+      "liked": true,
+      "reviewText": "An absolute masterpiece. This is a monumental celebration of live musicianship and disco, synth-pop history. The production is flawless, featuring analog synths, stunning orchestras, and outstanding collaboration. From 'Giorgio by Moroder' to 'Contact', it is a journey that never gets old.",
+      "dateLogged": "2026-05-24"
+    },
+    {
+      "id": "rev_2",
+      "username": "matheus",
+      "itemId": "629tFM5R52h4295DY57uN4",
+      "itemType": "track",
+      "itemName": "LUNCH",
+      "itemArtist": "Billie Eilish",
+      "itemImage": "https://i.scdn.co/image/ab67616d0000b27371d26177bed92e7f67d4f901",
+      "rating": 4.5,
+      "liked": true,
+      "reviewText": "An incredible bassline and dynamic hook! Finneas did an exceptional job on the bass synth, and Billie delivers her vocals with an unmatched blend of confidence and intimacy. Highly infectious and a huge highlight on the new album.",
+      "dateLogged": "2026-05-25"
+    },
+    {
+      "id": "rev_3",
+      "username": "matheus",
+      "itemId": "7yc5o40d47oXM0LsV7ZaR0",
+      "itemType": "album",
+      "itemName": "To Pimp a Butterfly",
+      "itemArtist": "Kendrick Lamar",
+      "itemImage": "https://i.scdn.co/image/ab67616d0000b273cdb64ccaf008d6a2f44c688c",
+      "rating": 5,
+      "liked": true,
+      "reviewText": "One of the most complex, beautiful, and politically resonant hip-hop albums of all time. Blending jazz, funk, soul, and spoken word into a unified, heavy message. It's a sonic novel that requires deep listening. Stunning work.",
+      "dateLogged": "2026-05-20"
+    },
+    {
+      "id": "rev_4",
+      "username": "matheus",
+      "itemId": "0vFOe1fVzWSTQ6441g0t67",
+      "itemType": "track",
+      "itemName": "Money",
+      "itemArtist": "Pink Floyd",
+      "itemImage": "https://i.scdn.co/image/ab67616d0000b273ea7ca3a55f9dca129a02091d",
+      "rating": 4,
+      "liked": false,
+      "reviewText": "The 7/4 time signature is legendary, and that sax solo is absolutely perfect. The sound effects in the intro (cash registers, coins clinking) are iconic in music history.",
+      "dateLogged": "2026-05-18"
+    }
+  ],
+  "playlists": [
+    {
+      "id": "list_1779720757799",
+      "name": "trap",
+      "description": "",
+      "username": "matheus",
+      "tracks": [
+        {
+          "id": "6sHWMvDDdgNNvkJ7JHktdl",
+          "name": "XTRANHO",
+          "artist": "Matuê, Brandão85",
+          "image": "https://i.scdn.co/image/ab67616d0000b273f78ea8aae8a360d9def9e819",
+          "duration": "3:33"
+        },
+        {
+          "id": "6OaVWaGfhXn70ZJfdVcabn",
+          "name": "NO BYSTANDERS",
+          "artist": "Travis Scott",
+          "image": "https://i.scdn.co/image/ab67616d0000b273daec894c14c0ca42d76eeb32",
+          "duration": "3:38"
+        }
+      ],
+      "likes": 0
+    },
+    {
+      "id": "list_1",
+      "name": "Matheus' Essentials",
+      "description": "The tracks that defined my musical journey. A mix of Daft Punk, electronic, and masterpieces.",
+      "username": "matheus",
+      "tracks": [
+        {
+          "id": "2Foc5QGx4Qug8Jb0gpc4Vs",
+          "name": "Get Lucky (feat. Pharrell Williams)",
+          "artist": "Daft Punk",
+          "image": "https://i.scdn.co/image/ab67616d0000b273b33d46dfa2635a88e775362b",
+          "duration": "6:09"
+        },
+        {
+          "id": "629tFM5R52h4295DY57uN4",
+          "name": "LUNCH",
+          "artist": "Billie Eilish",
+          "image": "https://i.scdn.co/image/ab67616d0000b27371d26177bed92e7f67d4f901",
+          "duration": "3:00"
+        },
+        {
+          "id": "3iVcZ5G6tv2jKpB5i80v7z",
+          "name": "Alright",
+          "artist": "Kendrick Lamar",
+          "image": "https://i.scdn.co/image/ab67616d0000b273cdb64ccaf008d6a2f44c688c",
+          "duration": "3:39"
+        }
+      ],
+      "likes": 12
+    }
+  ]
+}

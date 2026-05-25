@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Musicboxd | Compartilhe seu amor por música</title>
+  
+  <!-- Fontes do Google -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome para ícones premium -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Estilos customizados -->
+  <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+
+  <!-- Barra de Navegação Superior -->
+  <header class="app-header">
+    <div class="header-container">
+      <!-- Logo -->
+      <a href="/" class="app-logo" id="nav-logo">
+        <span class="logo-icon"><i class="fa-solid fa-circle-play"></i></span>
+        <span class="logo-text">musicboxd</span>
+      </a>
+
+      <!-- Barra de Pesquisa Rápida -->
+      <div class="header-search">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="global-search-input" placeholder="Pesquisar músicas, álbuns ou artistas..." autocomplete="off">
+        <div id="search-autocomplete-results" class="search-autocomplete"></div>
+      </div>
+
+      <!-- Navegação Principal -->
+      <nav class="app-nav">
+        <a href="/" class="nav-link active" data-view="dashboard"><i class="fa-solid fa-house"></i> Início</a>
+        <a href="/playlists" class="nav-link" data-view="playlists"><i class="fa-solid fa-list-ul"></i> Playlists</a>
+        <a href="/recomendacoes" class="nav-link" data-view="recommendations"><i class="fa-solid fa-wand-magic-sparkles"></i> Recomendações</a>
+        <a href="/perfil/matheus" class="nav-link" data-view="profile" id="nav-profile-link">
+          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=matheus" alt="Matheus" class="nav-avatar">
+          Meu Perfil
+        </a>
+      </nav>
+
+      <!-- Botão Hamburger Mobile -->
+      <button class="mobile-menu-toggle" id="mobile-toggle">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Menu Responsivo Mobile -->
+  <div class="mobile-menu" id="mobile-menu">
+    <div class="mobile-search">
+      <input type="text" id="mobile-search-input" placeholder="Pesquisar músicas, álbuns...">
+    </div>
+    <a href="/" class="mobile-link" data-view="dashboard">Início</a>
+    <a href="/playlists" class="mobile-link" data-view="playlists">Playlists</a>
+    <a href="/recomendacoes" class="mobile-link" data-view="recommendations">Recomendações</a>
+    <a href="/perfil/matheus" class="mobile-link" data-view="profile">Meu Perfil</a>
+  </div>
+
+  <!-- Container Principal das Visualizações Dinâmicas (SPA) -->
+  <main class="app-main">
+    <div class="container" id="app-view">
+      <!-- O conteúdo será injetado dinamicamente via JS -->
+      <div class="view-loading">
+        <div class="spinner"></div>
+        <p>Sincronizando com Spotify...</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Rodapé -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <div class="footer-left">
+        <p>&copy; 2026 <strong>musicboxd</strong>. Feito com paixão por música.</p>
+        <span class="spotify-credit">Dados fornecidos pela <i class="fa-brands fa-spotify"></i> Spotify API</span>
+      </div>
+      <div class="footer-right">
+        <a href="https://developer.spotify.com" target="_blank" class="footer-link">Termos de Desenvolvedor da Spotify</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==========================================
+       MODAIS (Ocultos por padrão)
+       ========================================== -->
+
+  <!-- 1. Modal de Avaliação / Log -->
+  <div class="modal-overlay" id="log-modal">
+    <div class="modal-box glassmorphism scale-up">
+      <button class="modal-close" id="log-modal-close"><i class="fa-solid fa-xmark"></i></button>
+      
+      <div class="modal-header">
+        <h3 id="log-modal-title">Avaliar Música</h3>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Detalhes do item a ser avaliado -->
+        <div class="item-log-preview">
+          <img id="log-item-cover" src="https://placehold.co/120" alt="Capa">
+          <div class="item-log-info">
+            <h4 id="log-item-name">Título da Música</h4>
+            <p id="log-item-artist">Nome do Artista</p>
+            <span id="log-item-badge" class="item-badge">Música</span>
+          </div>
+        </div>
+        
+        <!-- Formulário de Logs -->
+        <form id="log-form" class="log-form-container">
+          <input type="hidden" id="log-item-id">
+          <input type="hidden" id="log-item-type">
+          <input type="hidden" id="log-item-image">
+          
+          <!-- Seleção de Estrelas -->
+          <div class="form-group">
+            <label class="form-label">Sua nota:</label>
+            <div class="star-rating-selector" id="star-selector">
+              <!-- As estrelas interativas serão geradas dinamicamente para suportar meia estrela (0.5 - 5.0) -->
+              <div class="stars-row">
+                <i class="fa-regular fa-star star-btn" data-value="1"></i>
+                <i class="fa-regular fa-star star-btn" data-value="2"></i>
+                <i class="fa-regular fa-star star-btn" data-value="3"></i>
+                <i class="fa-regular fa-star star-btn" data-value="4"></i>
+                <i class="fa-regular fa-star star-btn" data-value="5"></i>
+              </div>
+              <span class="rating-display-value" id="rating-value">Sem nota</span>
+            </div>
+          </div>
+          
+          <!-- Botão Curtir (Coração) -->
+          <div class="form-group row-align">
+            <label class="form-label pointer" for="log-liked">
+              <i class="fa-regular fa-heart heart-checkbox" id="heart-icon"></i> Marcar como favorita
+            </label>
+            <input type="checkbox" id="log-liked" style="display: none;">
+          </div>
+          
+          <!-- Data em que ouviu -->
+          <div class="form-group">
+            <label class="form-label" for="log-date">Data em que ouviu:</label>
+            <input type="date" id="log-date" class="form-input">
+          </div>
+          
+          <!-- Escrever Review -->
+          <div class="form-group">
+            <label class="form-label" for="log-review">Sua opinião (opcional):</label>
+            <textarea id="log-review" rows="4" class="form-input form-textarea" placeholder="O que você achou dessa música/álbum? Destaques, críticas, vibe..."></textarea>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="log-delete-btn" style="display: none;">Excluir Review</button>
+            <button type="submit" class="btn btn-primary" id="log-save-btn">Salvar Avaliação</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modal de Editar Perfil -->
+  <div class="modal-overlay" id="profile-modal">
+    <div class="modal-box glassmorphism scale-up">
+      <button class="modal-close" id="profile-modal-close"><i class="fa-solid fa-xmark"></i></button>
+      
+      <div class="modal-header">
+        <h3>Editar Perfil</h3>
+      </div>
+      
+      <div class="modal-body">
+        <form id="profile-form">
+          <div class="form-group">
+            <label class="form-label" for="profile-name">Nome de Exibição:</label>
+            <input type="text" id="profile-name" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="profile-bio">Bio:</label>
+            <textarea id="profile-bio" rows="3" class="form-input form-textarea" placeholder="Fale um pouco sobre seu gosto musical..."></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="profile-cancel-btn">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar Perfil</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Modal de Criar/Editar Playlist -->
+  <div class="modal-overlay" id="playlist-modal">
+    <div class="modal-box glassmorphism scale-up">
+      <button class="modal-close" id="playlist-modal-close"><i class="fa-solid fa-xmark"></i></button>
+      
+      <div class="modal-header">
+        <h3 id="playlist-modal-title">Criar Playlist</h3>
+      </div>
+      
+      <div class="modal-body">
+        <form id="playlist-form">
+          <input type="hidden" id="playlist-edit-id">
+          
+          <div class="form-group">
+            <label class="form-label" for="playlist-name-input">Nome da Playlist:</label>
+            <input type="text" id="playlist-name-input" class="form-input" placeholder="Ex: Viagem Noturna, Clássicos do Rock..." required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="playlist-desc-input">Descrição (opcional):</label>
+            <textarea id="playlist-desc-input" rows="2" class="form-input form-textarea" placeholder="Descreva o clima da sua playlist..."></textarea>
+          </div>
+          
+          <!-- Seção de Gerenciamento de Músicas na Playlist -->
+          <div class="playlist-manager-tracks">
+            <label class="form-label">Músicas na Playlist:</label>
+            
+            <!-- Barra de Busca Rápida de Músicas para adicionar -->
+            <div class="playlist-add-track-search">
+              <i class="fa-solid fa-plus add-icon"></i>
+              <input type="text" id="playlist-track-search-input" placeholder="Pesquisar e adicionar música à playlist..." autocomplete="off">
+              <div id="playlist-search-results" class="search-autocomplete"></div>
+            </div>
+            
+            <!-- Lista de Músicas Adicionadas -->
+            <div class="playlist-added-list" id="playlist-added-tracks-container">
+              <!-- Músicas serão injetadas via JS -->
+              <p class="empty-list-message">Nenhuma música adicionada ainda.</p>
+            </div>
+          </div>
+          
+          <div class="form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn btn-secondary" id="playlist-cancel-btn">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="playlist-submit-btn">Criar Playlist</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container de Toasts (Notificações Flutuantes) -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Script principal do aplicativo -->
+  <script src="/index.js"></script>
+</body>
+</html>
