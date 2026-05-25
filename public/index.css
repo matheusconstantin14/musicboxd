@@ -390,7 +390,117 @@ button {
   transform: translateY(-1px);
 }
 
-/* 6. ESTILOS DO DASHBOARD (HOME) */
+/* ==========================================================================
+   6. TELAS DO SISTEMA DE LANDING PAGE E VISITANTES
+   ========================================================================== */
+.landing-hero {
+  text-align: center;
+  padding: 80px 24px 70px 24px;
+  background: radial-gradient(circle at center, rgba(0, 224, 84, 0.08) 0%, transparent 60%);
+  border-radius: var(--border-radius-lg);
+  margin-bottom: 50px;
+}
+.landing-logo {
+  font-size: 54px;
+  color: var(--color-green);
+  margin-bottom: 12px;
+  display: inline-flex;
+  filter: drop-shadow(0 0 12px rgba(0, 224, 84, 0.4));
+}
+.landing-title {
+  font-family: var(--font-heading);
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
+  margin-bottom: 16px;
+}
+.landing-title span {
+  color: var(--color-green);
+}
+.landing-subtitle {
+  font-size: 20px;
+  color: var(--text-secondary);
+  max-width: 700px;
+  margin: 0 auto 30px auto;
+  line-height: 1.6;
+}
+
+/* Cards das Funcionalidades da Landing Page */
+.landing-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 60px;
+}
+@media (max-width: 850px) {
+  .landing-features-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.feature-card {
+  padding: 30px 24px;
+  border-radius: var(--border-radius-lg);
+  text-align: center;
+  transition: all var(--transition-normal);
+}
+.feature-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--color-border-hover);
+  background: rgba(255, 255, 255, 0.02);
+}
+.feature-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(0, 224, 84, 0.1);
+  color: var(--color-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin: 0 auto 20px auto;
+  box-shadow: var(--glow-green);
+}
+.feature-title {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.feature-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Call to Action Box na Landing */
+.landing-cta-box {
+  padding: 40px;
+  border-radius: var(--border-radius-lg);
+  text-align: center;
+  max-width: 650px;
+  margin: 0 auto;
+  border: 1px solid var(--color-border-hover);
+}
+.cta-title {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.cta-desc {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+.cta-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+/* 7. ESTILOS DO DASHBOARD (HOME LOGADO) */
 .dashboard-hero {
   text-align: center;
   padding: 60px 0 50px 0;
@@ -672,7 +782,7 @@ button {
   margin-bottom: 8px;
 }
 
-/* 7. ESTILOS DO DETALHE DA MÚSICA/ÁLBUM/ARTISTA */
+/* 8. ESTILOS DO DETALHE DA MÚSICA/ÁLBUM/ARTISTA */
 .details-container {
   display: grid;
   grid-template-columns: 280px 1fr 240px;
@@ -923,7 +1033,7 @@ button {
   padding: 4px 8px 0 8px;
 }
 
-/* 8. CONTROLES DO SELETOR DE ESTRELAS (Modais) */
+/* 9. CONTROLES DO SELETOR DE ESTRELAS (Modais) */
 .star-rating-selector {
   display: flex;
   align-items: center;
@@ -974,7 +1084,7 @@ button {
   100% { transform: scale(1); }
 }
 
-/* 9. PÁGINA DO PERFIL DO USUÁRIO */
+/* 10. PÁGINA DO PERFIL DO USUÁRIO */
 .profile-header-card {
   display: flex;
   gap: 24px;
@@ -1090,24 +1200,6 @@ button {
   }
 }
 
-/* 10. RECOMENDAÇÕES ENGINE VIEW */
-.recs-settings-box {
-  padding: 24px;
-  border-radius: var(--border-radius-lg);
-  margin-bottom: 30px;
-}
-.recs-form {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr) auto;
-  gap: 16px;
-  align-items: flex-end;
-}
-@media (max-width: 768px) {
-  .recs-form {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* 11. PLAYLISTS E MANAGER */
 .playlist-added-list {
   background: rgba(0, 0, 0, 0.15);
@@ -1192,7 +1284,38 @@ button {
   gap: 8px;
 }
 
-/* 13. MODAIS & EFEITOS DE DIÁLOGO */
+/* ==========================================================================
+   13. AUTENTICAÇÃO E GUIA DE INTERFACE AUTH MODALS
+   ========================================================================== */
+.auth-toggle-headers {
+  display: flex;
+  gap: 16px;
+}
+.auth-tab-btn {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
+  transition: var(--transition-fast);
+}
+.auth-tab-btn:hover {
+  color: var(--text-primary);
+}
+.auth-tab-btn.active {
+  color: var(--color-green);
+  border-bottom-color: var(--color-green);
+}
+.auth-form-panel {
+  display: none;
+  flex-direction: column;
+}
+.auth-form-panel.active {
+  display: flex;
+}
+
+/* 14. MODAIS & EFEITOS DE DIÁLOGO */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1375,7 +1498,7 @@ button {
   color: var(--color-green);
 }
 
-/* 14. TOAST NOTIFICATION SYSTEM */
+/* 15. TOAST NOTIFICATION SYSTEM */
 .toast-container {
   position: fixed;
   bottom: 24px;
@@ -1415,7 +1538,7 @@ button {
   100% { transform: translateX(0); opacity: 1; }
 }
 
-/* 15. RODAPÉ */
+/* 16. RODAPÉ */
 .app-footer {
   margin-top: auto;
   border-top: 1px solid var(--color-border);
@@ -1440,7 +1563,7 @@ button {
   color: var(--text-secondary);
 }
 
-/* 16. RESPONSIVIDADE ADAPTATIVA */
+/* 17. RESPONSIVIDADE ADAPTATIVA */
 @media (max-width: 768px) {
   .app-header {
     height: 64px;
@@ -1462,6 +1585,16 @@ button {
   }
   .hero-subtitle {
     font-size: 15px;
+  }
+  .landing-title {
+    font-size: 36px;
+  }
+  .landing-subtitle {
+    font-size: 16px;
+  }
+  .cta-buttons {
+    flex-direction: column;
+    gap: 10px;
   }
   .music-grid {
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));

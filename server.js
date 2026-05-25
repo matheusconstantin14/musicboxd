@@ -1,16 +1,31 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join(__dirname, 'db.json');
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ==========================================
+// SUPABASE CLIENT INITIALIZATION
+// ==========================================
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('CRITICAL ERROR: Supabase credentials are not configured in .env');
+  process.exit(1);
+}
+
+// Initializing Supabase client
+const supabase = createClient(supabaseUrl, supabaseKey);
+console.log('Supabase client successfully initialized for URL:', supabaseUrl);
 
 // ==========================================
 // SPOTIFY TOKEN MANAGER (Client Credentials Flow)
@@ -20,7 +35,6 @@ let tokenExpiresAt = 0;
 
 async function getSpotifyToken() {
   const now = Date.now();
-  // Buffer token expiry by 30 seconds to be safe
   if (cachedToken && now < tokenExpiresAt - 30000) {
     return cachedToken;
   }
@@ -32,9 +46,7 @@ async function getSpotifyToken() {
     throw new Error('Spotify Client ID or Secret is not configured in .env');
   }
 
-  console.log('Fetching new Spotify Access Token...');
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
   const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
@@ -53,42 +65,12 @@ async function getSpotifyToken() {
   cachedToken = data.access_token;
   tokenExpiresAt = Date.now() + (data.expires_in * 1000);
   
-  console.log('Spotify Token successfully retrieved and cached.');
   return cachedToken;
-}
-
-// ==========================================
-// DATABASE UTILITIES (db.json helper methods)
-// ==========================================
-function readDB() {
-  try {
-    if (!fs.existsSync(DB_FILE)) {
-      // Return a blank template if the file was deleted
-      return { users: [], reviews: [], playlists: [] };
-    }
-    const data = fs.readFileSync(DB_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    console.error('Error reading JSON database:', err);
-    return { users: [], reviews: [], playlists: [] };
-  }
-}
-
-function writeDB(data) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
-    return true;
-  } catch (err) {
-    console.error('Error writing to JSON database:', err);
-    return false;
-  }
 }
 
 // ==========================================
 // SPOTIFY PROXY ENDPOINTS
 // ==========================================
-
-// Helper function to query Spotify Web API
 async function spotifyRequest(endpoint, queryParams = {}) {
   const token = await getSpotifyToken();
   const queryString = new URLSearchParams(queryParams).toString();
@@ -110,14 +92,12 @@ async function spotifyRequest(endpoint, queryParams = {}) {
   return await response.json();
 }
 
-// Search endpoint (tracks, albums, artists)
 app.get('/api/spotify/search', async (req, res) => {
   try {
     const { q, type, limit, offset } = req.query;
     if (!q) {
       return res.status(400).json({ error: 'Search query parameter "q" is required' });
     }
-
     const data = await spotifyRequest('search', {
       q,
       type: type || 'track,album,artist',
@@ -126,347 +106,520 @@ app.get('/api/spotify/search', async (req, res) => {
     });
     res.json(data);
   } catch (err) {
-    console.error('Search Proxy Error:', err);
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
   }
 });
 
-// Single Track details
 app.get('/api/spotify/tracks/:id', async (req, res) => {
   try {
     const data = await spotifyRequest(`tracks/${req.params.id}`);
     res.json(data);
   } catch (err) {
-    console.error('Track Proxy Error:', err);
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
   }
 });
 
-// Single Album details (with tracks)
 app.get('/api/spotify/albums/:id', async (req, res) => {
   try {
     const data = await spotifyRequest(`albums/${req.params.id}`);
     res.json(data);
   } catch (err) {
-    console.error('Album Proxy Error:', err);
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
   }
 });
 
-// Single Artist details
 app.get('/api/spotify/artists/:id', async (req, res) => {
   try {
     const data = await spotifyRequest(`artists/${req.params.id}`);
     res.json(data);
   } catch (err) {
-    console.error('Artist Proxy Error:', err);
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
   }
 });
 
-// Artist's Top Tracks
 app.get('/api/spotify/artists/:id/top-tracks', async (req, res) => {
   try {
     const market = req.query.market || 'US';
     const data = await spotifyRequest(`artists/${req.params.id}/top-tracks`, { market });
     res.json(data);
   } catch (err) {
-    console.error('Artist Top Tracks Proxy Error:', err);
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
   }
 });
-
-// Recommendations Endpoint
-app.get('/api/spotify/recommendations', async (req, res) => {
-  try {
-    const { seed_artists, seed_genres, seed_tracks, limit } = req.query;
-    
-    // We need at least one seed type
-    if (!seed_artists && !seed_genres && !seed_tracks) {
-      return res.status(400).json({ error: 'At least one seed (artists, genres, or tracks) is required' });
-    }
-
-    const params = { limit: limit || 12 };
-    if (seed_artists) params.seed_artists = seed_artists;
-    if (seed_genres) params.seed_genres = seed_genres;
-    if (seed_tracks) params.seed_tracks = seed_tracks;
-
-    const data = await spotifyRequest('recommendations', params);
-    res.json(data);
-  } catch (err) {
-    console.error('Recommendations Proxy Error:', err);
-    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
-  }
-});
-
-// Recommendation Genres (static list or queried from Spotify)
-app.get('/api/spotify/genres', async (req, res) => {
-  try {
-    const data = await spotifyRequest('recommendations/available-genre-seeds');
-    res.json(data);
-  } catch (err) {
-    console.error('Genre Seeds Proxy Error:', err);
-    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
-  }
-});
-
 
 // ==========================================
-// LOCAL DATABASE API ENDPOINTS (Musicboxd Logic)
+// DB COLUMNS MAPPER LAYER (snake_case <-> camelCase)
+// ==========================================
+const mapReviewFromDB = (r) => ({
+  id: r.id,
+  username: r.username,
+  itemId: r.item_id,
+  itemType: r.item_type,
+  itemName: r.item_name,
+  itemArtist: r.item_artist,
+  itemImage: r.item_image,
+  rating: parseFloat(r.rating),
+  liked: r.liked,
+  reviewText: r.review_text,
+  dateLogged: r.date_logged
+});
+
+const mapReviewToDB = (r) => ({
+  id: r.id,
+  username: r.username,
+  item_id: r.itemId,
+  item_type: r.itemType,
+  item_name: r.itemName,
+  item_artist: r.itemArtist,
+  item_image: r.itemImage,
+  rating: parseFloat(r.rating),
+  liked: !!r.liked,
+  review_text: r.reviewText,
+  date_logged: r.dateLogged
+});
+
+const mapUserFromDB = (u) => ({
+  username: u.username,
+  displayName: u.display_name,
+  bio: u.bio,
+  avatar: u.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`,
+  favorites: u.favorites || { tracks: [], albums: [], artists: [] }
+});
+
+// ==========================================
+// PRODUCTION AUTHENTICATION ENDPOINTS
+// ==========================================
+
+// 1. User Registration / Signup
+app.post('/api/auth/signup', async (req, res) => {
+  const { username, displayName, password } = req.body;
+
+  if (!username || !displayName || !password) {
+    return res.status(400).json({ error: 'Todos os campos são obrigatórios (username, displayName, password)' });
+  }
+
+  const cleanUsername = username.trim().toLowerCase();
+
+  try {
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('username')
+      .eq('username', cleanUsername)
+      .single();
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Este nome de usuário já está cadastrado.' });
+    }
+
+    // Hash Password
+    const passwordHash = bcrypt.hashSync(password, 10);
+    const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`;
+
+    // Insert user into Supabase table
+    const { data: newUser, error: insertError } = await supabase
+      .from('users')
+      .insert({
+        username: cleanUsername,
+        display_name: displayName.trim(),
+        password_hash: passwordHash,
+        avatar_url: avatarUrl
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    res.status(201).json({ 
+      success: true, 
+      user: mapUserFromDB(newUser)
+    });
+  } catch (err) {
+    console.error('Registration Error:', err);
+    res.status(500).json({ error: 'Erro interno ao realizar cadastro.' });
+  }
+});
+
+// 2. User Login
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
+  }
+
+  const cleanUsername = username.trim().toLowerCase();
+
+  try {
+    // Select user where username matches
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', cleanUsername)
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Nome de usuário não encontrado.' });
+    }
+
+    // Compare Password
+    const isMatch = bcrypt.compareSync(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Senha incorreta.' });
+    }
+
+    res.json({
+      success: true,
+      user: mapUserFromDB(user)
+    });
+  } catch (err) {
+    console.error('Login Error:', err);
+    res.status(500).json({ error: 'Erro interno ao realizar autenticação.' });
+  }
+});
+
+// ==========================================
+// SUPABASE LOCAL PROFILE & STATISTICS APIs
 // ==========================================
 
 // Get user profile details
-app.get('/api/profile/:username', (req, res) => {
+app.get('/api/profile/:username', async (req, res) => {
   const { username } = req.params;
-  const db = readDB();
-  const user = db.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+  const cleanUsername = username.trim().toLowerCase();
 
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
+  try {
+    const { data: user, error: userErr } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', cleanUsername)
+      .single();
 
-  // Get ratings and reviews for stats calculations
-  const userReviews = db.reviews.filter(r => r.username.toLowerCase() === username.toLowerCase());
-  
-  res.json({
-    user,
-    stats: {
-      totalReviews: userReviews.length,
-      totalLikes: userReviews.filter(r => r.liked).length,
-      ratingsDistribution: {
-        '0.5': userReviews.filter(r => r.rating === 0.5).length,
-        '1.0': userReviews.filter(r => r.rating === 1.0).length,
-        '1.5': userReviews.filter(r => r.rating === 1.5).length,
-        '2.0': userReviews.filter(r => r.rating === 2.0).length,
-        '2.5': userReviews.filter(r => r.rating === 2.5).length,
-        '3.0': userReviews.filter(r => r.rating === 3.0).length,
-        '3.5': userReviews.filter(r => r.rating === 3.5).length,
-        '4.0': userReviews.filter(r => r.rating === 4.0).length,
-        '4.5': userReviews.filter(r => r.rating === 4.5).length,
-        '5.0': userReviews.filter(r => r.rating === 5.0).length
-      }
+    if (userErr || !user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
     }
-  });
+
+    // Query reviews for statistical analysis
+    const { data: userReviews } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('username', cleanUsername);
+
+    const reviews = userReviews || [];
+    const ratingStats = {
+      '0.5': reviews.filter(r => parseFloat(r.rating) === 0.5).length,
+      '1.0': reviews.filter(r => parseFloat(r.rating) === 1.0).length,
+      '1.5': reviews.filter(r => parseFloat(r.rating) === 1.5).length,
+      '2.0': reviews.filter(r => parseFloat(r.rating) === 2.0).length,
+      '2.5': reviews.filter(r => parseFloat(r.rating) === 2.5).length,
+      '3.0': reviews.filter(r => parseFloat(r.rating) === 3.0).length,
+      '3.5': reviews.filter(r => parseFloat(r.rating) === 3.5).length,
+      '4.0': reviews.filter(r => parseFloat(r.rating) === 4.0).length,
+      '4.5': reviews.filter(r => parseFloat(r.rating) === 4.5).length,
+      '5.0': reviews.filter(r => parseFloat(r.rating) === 5.0).length
+    };
+
+    res.json({
+      user: mapUserFromDB(user),
+      stats: {
+        totalReviews: reviews.length,
+        totalLikes: reviews.filter(r => r.liked).length,
+        ratingsDistribution: ratingStats
+      }
+    });
+  } catch (err) {
+    console.error('Profile Retrieval Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar perfil.' });
+  }
 });
 
 // Update Profile bio / displayName
-app.post('/api/profile/:username/edit', (req, res) => {
+app.post('/api/profile/:username/edit', async (req, res) => {
   const { username } = req.params;
   const { displayName, bio } = req.body;
-  const db = readDB();
-  const userIdx = db.users.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+  const cleanUsername = username.trim().toLowerCase();
 
-  if (userIdx === -1) {
-    return res.status(404).json({ error: 'User not found' });
+  try {
+    const { data: updatedUser, error } = await supabase
+      .from('users')
+      .update({
+        display_name: displayName,
+        bio: bio
+      })
+      .eq('username', cleanUsername)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, user: mapUserFromDB(updatedUser) });
+  } catch (err) {
+    console.error('Edit Profile Error:', err);
+    res.status(500).json({ error: 'Erro ao salvar alterações no perfil.' });
   }
-
-  db.users[userIdx].displayName = displayName || db.users[userIdx].displayName;
-  db.users[userIdx].bio = bio !== undefined ? bio : db.users[userIdx].bio;
-
-  writeDB(db);
-  res.json({ success: true, user: db.users[userIdx] });
 });
 
-// Toggle Favorite Item (track, album, artist)
-app.post('/api/profile/:username/favorites', (req, res) => {
+// Toggle Favorite Item (track, album, artist) on Profile highlights
+app.post('/api/profile/:username/favorites', async (req, res) => {
   const { username } = req.params;
-  const { id, name, artist, image, type } = req.body; // type is 'track', 'album', or 'artist'
+  const { id, name, artist, image, type } = req.body;
+  const cleanUsername = username.trim().toLowerCase();
 
   if (!id || !name || !type) {
-    return res.status(400).json({ error: 'Invalid item structure' });
+    return res.status(400).json({ error: 'Estrutura de item favorita inválida.' });
   }
 
-  const db = readDB();
-  const userIdx = db.users.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+  try {
+    // Get current user favorites column
+    const { data: user, error: fetchErr } = await supabase
+      .from('users')
+      .select('favorites')
+      .eq('username', cleanUsername)
+      .single();
 
-  if (userIdx === -1) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  const favorites = db.users[userIdx].favorites;
-  const listName = type === 'track' ? 'tracks' : (type === 'album' ? 'albums' : 'artists');
-  
-  if (!favorites[listName]) {
-    favorites[listName] = [];
-  }
-
-  const existingIdx = favorites[listName].findIndex(item => item.id === id);
-
-  if (existingIdx > -1) {
-    // Remove if already favorited
-    favorites[listName].splice(existingIdx, 1);
-    writeDB(db);
-    return res.json({ success: true, favorited: false, message: 'Removed from favorites' });
-  } else {
-    // Max 5 favorites for visual grid styling
-    if (favorites[listName].length >= 5) {
-      return res.status(400).json({ error: `You can only select up to 5 favorite ${listName} for your profile page.` });
+    if (fetchErr || !user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
     }
-    // Add to favorites
-    favorites[listName].push({ id, name, artist: artist || '', image: image || '', type });
-    writeDB(db);
-    return res.json({ success: true, favorited: true, message: 'Added to favorites' });
+
+    const favorites = user.favorites || { tracks: [], albums: [], artists: [] };
+    const listName = type === 'track' ? 'tracks' : (type === 'album' ? 'albums' : 'artists');
+    
+    if (!favorites[listName]) favorites[listName] = [];
+    const existingIdx = favorites[listName].findIndex(item => item.id === id);
+
+    let favorited = false;
+    if (existingIdx > -1) {
+      favorites[listName].splice(existingIdx, 1);
+    } else {
+      if (favorites[listName].length >= 5) {
+        return res.status(400).json({ error: `Você só pode destacar até 5 ${listName} favoritos no perfil.` });
+      }
+      favorites[listName].push({ id, name, artist: artist || '', image: image || '', type });
+      favorited = true;
+    }
+
+    // Save back to PostgreSQL JSONB
+    const { error: updateErr } = await supabase
+      .from('users')
+      .update({ favorites })
+      .eq('username', cleanUsername);
+
+    if (updateErr) throw updateErr;
+
+    res.json({ success: true, favorited, message: favorited ? 'Adicionado aos destaques' : 'Removido dos destaques' });
+  } catch (err) {
+    console.error('Favorites Toggle Error:', err);
+    res.status(500).json({ error: 'Erro interno ao salvar item favorito.' });
   }
 });
 
-// Get all reviews (with optional filtering)
-app.get('/api/reviews', (req, res) => {
+// ==========================================
+// SUPABASE LOCAL REVIEWS APIs (CRUD)
+// ==========================================
+
+// Get reviews (with optional filtering)
+app.get('/api/reviews', async (req, res) => {
   const { username, itemId, itemType } = req.query;
-  const db = readDB();
-  let filteredReviews = db.reviews;
 
-  if (username) {
-    filteredReviews = filteredReviews.filter(r => r.username.toLowerCase() === username.toLowerCase());
-  }
-  if (itemId) {
-    filteredReviews = filteredReviews.filter(r => r.itemId === itemId);
-  }
-  if (itemType) {
-    filteredReviews = filteredReviews.filter(r => r.itemType === itemType);
-  }
+  try {
+    let query = supabase.from('reviews').select('*');
 
-  // Sort by date logged (newest first)
-  filteredReviews.sort((a, b) => new Date(b.dateLogged) - new Date(a.dateLogged));
+    if (username) {
+      query = query.eq('username', username.trim().toLowerCase());
+    }
+    if (itemId) {
+      query = query.eq('item_id', itemId);
+    }
+    if (itemType) {
+      query = query.eq('item_type', itemType);
+    }
 
-  res.json(filteredReviews);
+    // Order by date logged (newest first), falling back to creation timestamp
+    const { data: dbReviews, error } = await query
+      .order('date_logged', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const mapped = (dbReviews || []).map(mapReviewFromDB);
+    res.json(mapped);
+  } catch (err) {
+    console.error('Get Reviews Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar avaliações.' });
+  }
 });
 
-// Create or update a review
-app.post('/api/reviews', (req, res) => {
+// Create or update a review (Upsert)
+app.post('/api/reviews', async (req, res) => {
   const { username, itemId, itemType, itemName, itemArtist, itemImage, rating, liked, reviewText, dateLogged } = req.body;
 
   if (!username || !itemId || !itemType || !itemName || rating === undefined) {
-    return res.status(400).json({ error: 'Missing required parameters (username, itemId, itemType, itemName, rating)' });
+    return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes.' });
   }
 
-  const db = readDB();
+  const cleanUsername = username.trim().toLowerCase();
 
-  // Find if review for this item by this user already exists (Update)
-  const existingIdx = db.reviews.findIndex(r => r.username.toLowerCase() === username.toLowerCase() && r.itemId === itemId);
-  const formattedDate = dateLogged || new Date().toISOString().split('T')[0];
+  try {
+    // Generate id if new, or check if review for this item by this user already exists to update
+    const { data: existing } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('username', cleanUsername)
+      .eq('item_id', itemId)
+      .maybeSingle();
 
-  const reviewObject = {
-    id: existingIdx > -1 ? db.reviews[existingIdx].id : `rev_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-    username,
-    itemId,
-    itemType,
-    itemName,
-    itemArtist: itemArtist || '',
-    itemImage: itemImage || '',
-    rating: parseFloat(rating),
-    liked: !!liked,
-    reviewText: reviewText || '',
-    dateLogged: formattedDate
-  };
+    const id = existing ? existing.id : `rev_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const formattedDate = dateLogged || new Date().toISOString().split('T')[0];
 
-  if (existingIdx > -1) {
-    db.reviews[existingIdx] = reviewObject;
-  } else {
-    db.reviews.unshift(reviewObject);
+    const dbRow = mapReviewToDB({
+      id,
+      username: cleanUsername,
+      itemId,
+      itemType,
+      itemName,
+      itemArtist,
+      itemImage,
+      rating,
+      liked,
+      reviewText,
+      dateLogged: formattedDate
+    });
+
+    const { data: savedRow, error } = await supabase
+      .from('reviews')
+      .upsert(dbRow)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, review: mapReviewFromDB(savedRow) });
+  } catch (err) {
+    console.error('Post Review Error:', err);
+    res.status(500).json({ error: 'Erro ao salvar avaliação.' });
   }
-
-  writeDB(db);
-  res.json({ success: true, review: reviewObject });
 });
 
 // Delete a review
-app.delete('/api/reviews/:id', (req, res) => {
+app.delete('/api/reviews/:id', async (req, res) => {
   const { id } = req.params;
-  const db = readDB();
-  const initialLen = db.reviews.length;
-  db.reviews = db.reviews.filter(r => r.id !== id);
 
-  if (db.reviews.length === initialLen) {
-    return res.status(404).json({ error: 'Review not found' });
+  try {
+    const { error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Avaliação excluída com sucesso.' });
+  } catch (err) {
+    console.error('Delete Review Error:', err);
+    res.status(500).json({ error: 'Erro ao excluir avaliação.' });
   }
-
-  writeDB(db);
-  res.json({ success: true, message: 'Review successfully deleted' });
 });
 
+// ==========================================
+// SUPABASE LOCAL PLAYLISTS APIs (CRUD)
+// ==========================================
+
 // Get playlists
-app.get('/api/playlists', (req, res) => {
+app.get('/api/playlists', async (req, res) => {
   const { username } = req.query;
-  const db = readDB();
-  let filteredPlaylists = db.playlists;
 
-  if (username) {
-    filteredPlaylists = filteredPlaylists.filter(p => p.username.toLowerCase() === username.toLowerCase());
+  try {
+    let query = supabase.from('playlists').select('*');
+
+    if (username) {
+      query = query.eq('username', username.trim().toLowerCase());
+    }
+
+    const { data: dbPlaylists, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(dbPlaylists || []);
+  } catch (err) {
+    console.error('Get Playlists Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar playlists.' });
   }
-
-  res.json(filteredPlaylists);
 });
 
 // Get single playlist details
-app.get('/api/playlists/:id', (req, res) => {
-  const db = readDB();
-  const playlist = db.playlists.find(p => p.id === req.params.id);
+app.get('/api/playlists/:id', async (req, res) => {
+  const { id } = req.params;
 
-  if (!playlist) {
-    return res.status(404).json({ error: 'Playlist not found' });
+  try {
+    const { data: playlist, error } = await supabase
+      .from('playlists')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !playlist) {
+      return res.status(404).json({ error: 'Playlist não encontrada.' });
+    }
+
+    res.json(playlist);
+  } catch (err) {
+    console.error('Get Playlist Details Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar detalhes da playlist.' });
   }
-
-  res.json(playlist);
 });
 
-// Create or update a playlist
-app.post('/api/playlists', (req, res) => {
+// Create or update a playlist (Upsert)
+app.post('/api/playlists', async (req, res) => {
   const { id, name, description, username, tracks } = req.body;
 
   if (!name || !username) {
-    return res.status(400).json({ error: 'Playlist name and owner username are required' });
+    return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes.' });
   }
 
-  const db = readDB();
-  let playlistObject;
+  const cleanUsername = username.trim().toLowerCase();
+  const playlistId = id || `list_${Date.now()}`;
 
-  if (id) {
-    // Update existing
-    const existingIdx = db.playlists.findIndex(p => p.id === id);
-    if (existingIdx === -1) {
-      return res.status(404).json({ error: 'Playlist not found' });
-    }
-    
-    playlistObject = {
-      ...db.playlists[existingIdx],
-      name,
-      description: description || '',
-      tracks: tracks || []
-    };
-    db.playlists[existingIdx] = playlistObject;
-  } else {
-    // Create new
-    playlistObject = {
-      id: `list_${Date.now()}`,
-      name,
-      description: description || '',
-      username,
-      tracks: tracks || [],
-      likes: 0
-    };
-    db.playlists.unshift(playlistObject);
+  try {
+    const { data: savedPlaylist, error } = await supabase
+      .from('playlists')
+      .upsert({
+        id: playlistId,
+        username: cleanUsername,
+        name: name.trim(),
+        description: description || '',
+        tracks: tracks || []
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, playlist: savedPlaylist });
+  } catch (err) {
+    console.error('Post Playlist Error:', err);
+    res.status(500).json({ error: 'Erro ao salvar playlist.' });
   }
-
-  writeDB(db);
-  res.json({ success: true, playlist: playlistObject });
 });
 
 // Delete a playlist
-app.delete('/api/playlists/:id', (req, res) => {
+app.delete('/api/playlists/:id', async (req, res) => {
   const { id } = req.params;
-  const db = readDB();
-  const initialLen = db.playlists.length;
-  db.playlists = db.playlists.filter(p => p.id !== id);
 
-  if (db.playlists.length === initialLen) {
-    return res.status(404).json({ error: 'Playlist not found' });
+  try {
+    const { error } = await supabase
+      .from('playlists')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Playlist excluída com sucesso.' });
+  } catch (err) {
+    console.error('Delete Playlist Error:', err);
+    res.status(500).json({ error: 'Erro ao excluir playlist.' });
   }
-
-  writeDB(db);
-  res.json({ success: true, message: 'Playlist successfully deleted' });
 });
 
-// Wildcard fallback to serve index.html for React-like client routers
+// Wildcard fallback to serve index.html for SPA router
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -476,6 +629,6 @@ app.listen(PORT, () => {
   console.log(`====================================================`);
   console.log(`Musicboxd Server running on http://localhost:${PORT}`);
   console.log(`Serving static files from ./public`);
-  console.log(`Using database file: ${DB_FILE}`);
+  console.log(`Connected to Supabase PostgreSQL database.`);
   console.log(`====================================================`);
 });
