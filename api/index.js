@@ -28,7 +28,7 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 // Middleware to check if Supabase is initialized
-app.use(['/api/auth', '/api/profile', '/api/reviews', '/api/playlists'], (req, res, next) => {
+app.use(['/api/auth', '/api/profile', '/api/reviews', '/api/playlists', '/api/friends', '/api/chat'], (req, res, next) => {
   if (!supabase) {
     return res.status(500).json({ error: 'Supabase credentials are not configured on the server. Please configure SUPABASE_URL and SUPABASE_KEY in Vercel settings.' });
   }
@@ -624,6 +624,217 @@ app.delete('/api/playlists/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete Playlist Error:', err);
     res.status(500).json({ error: 'Erro ao excluir playlist.' });
+  }
+});
+
+// ==========================================
+// SUPABASE SOCIAL & CHAT APIs
+// ==========================================
+
+// 1. Search users by display name or username to add as friends
+app.get('/api/friends/search-users', async (req, res) => {
+  const { q, currentUsername } = req.query;
+  if (!q) {
+    return res.json([]);
+  }
+
+  const cleanQuery = q.trim().toLowerCase();
+  const cleanCurrent = currentUsername ? currentUsername.trim().toLowerCase() : '';
+
+  try {
+    // Select users whose username or display_name matches query
+    // Exclude current user from results
+    const { data: dbUsers, error } = await supabase
+      .from('users')
+      .select('username, display_name, avatar_url')
+      .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
+      .neq('username', cleanCurrent)
+      .limit(10);
+
+    if (error) throw error;
+
+    res.json(dbUsers || []);
+  } catch (err) {
+    console.error('Search Users Error:', err);
+    res.status(500).json({ error: 'Erro ao pesquisar usuários.' });
+  }
+});
+
+// 2. Get friends list (both accepted friends and pending received/sent requests)
+app.get('/api/friends/list', async (req, res) => {
+  const { username } = req.query;
+  if (!username) {
+    return res.status(400).json({ error: 'Username é obrigatório.' });
+  }
+  const cleanUsername = username.trim().toLowerCase();
+
+  try {
+    // Query all friendships involving the current user
+    const { data: dbFriendships, error } = await supabase
+      .from('friendships')
+      .select('*')
+      .or(`sender_username.eq.${cleanUsername},receiver_username.eq.${cleanUsername}`);
+
+    if (error) throw error;
+
+    res.json(dbFriendships || []);
+  } catch (err) {
+    console.error('List Friendships Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar lista de amizades.' });
+  }
+});
+
+// 3. Send friend request
+app.post('/api/friends/request', async (req, res) => {
+  const { senderUsername, receiverUsername } = req.body;
+  if (!senderUsername || !receiverUsername) {
+    return res.status(400).json({ error: 'Sender e Receiver são obrigatórios.' });
+  }
+
+  const cleanSender = senderUsername.trim().toLowerCase();
+  const cleanReceiver = receiverUsername.trim().toLowerCase();
+
+  if (cleanSender === cleanReceiver) {
+    return res.status(400).json({ error: 'Você não pode adicionar a si mesmo.' });
+  }
+
+  try {
+    // Insert pending friendship relation
+    const { data, error } = await supabase
+      .from('friendships')
+      .insert({
+        sender_username: cleanSender,
+        receiver_username: cleanReceiver,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') { // Unique constraint violation
+        return res.status(400).json({ error: 'Uma solicitação ou amizade entre estes usuários já existe.' });
+      }
+      throw error;
+    }
+
+    res.json({ success: true, friendship: data });
+  } catch (err) {
+    console.error('Friend Request Error:', err);
+    res.status(500).json({ error: 'Erro ao enviar solicitação de amizade.' });
+  }
+});
+
+// 4. Accept friend request
+app.post('/api/friends/accept', async (req, res) => {
+  const { senderUsername, receiverUsername } = req.body;
+  if (!senderUsername || !receiverUsername) {
+    return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes.' });
+  }
+
+  const cleanSender = senderUsername.trim().toLowerCase();
+  const cleanReceiver = receiverUsername.trim().toLowerCase();
+
+  try {
+    // Update friendship status to accepted
+    const { data, error } = await supabase
+      .from('friendships')
+      .update({ status: 'accepted' })
+      .eq('sender_username', cleanSender)
+      .eq('receiver_username', cleanReceiver)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, friendship: data });
+  } catch (err) {
+    console.error('Accept Friend Error:', err);
+    res.status(500).json({ error: 'Erro ao aceitar solicitação.' });
+  }
+});
+
+// 5. Decline request or Unfriend
+app.post('/api/friends/decline', async (req, res) => {
+  const { userA, userB } = req.body;
+  if (!userA || !userB) {
+    return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes.' });
+  }
+
+  const cleanA = userA.trim().toLowerCase();
+  const cleanB = userB.trim().toLowerCase();
+
+  try {
+    // Delete friendship relation regardless of who sent it
+    const { error } = await supabase
+      .from('friendships')
+      .delete()
+      .or(`and(sender_username.eq.${cleanA},receiver_username.eq.${cleanB}),and(sender_username.eq.${cleanB},receiver_username.eq.${cleanA})`);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Amizade desfeita ou solicitação recusada com sucesso.' });
+  } catch (err) {
+    console.error('Decline Friend Error:', err);
+    res.status(500).json({ error: 'Erro ao remover amizade.' });
+  }
+});
+
+// 6. Get direct chat messages history with a specific friend
+app.get('/api/chat/messages', async (req, res) => {
+  const { user, friend } = req.query;
+  if (!user || !friend) {
+    return res.status(400).json({ error: 'Parâmetros obrigatórios ausentes.' });
+  }
+
+  const cleanUser = user.trim().toLowerCase();
+  const cleanFriend = friend.trim().toLowerCase();
+
+  try {
+    // Retrieve conversation history order by date
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`and(sender_username.eq.${cleanUser},receiver_username.eq.${cleanFriend}),and(sender_username.eq.${cleanFriend},receiver_username.eq.${cleanUser})`)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(messages || []);
+  } catch (err) {
+    console.error('Get Messages Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar mensagens.' });
+  }
+});
+
+// 7. Send chat message (with optional playlist ID)
+app.post('/api/chat/messages', async (req, res) => {
+  const { senderUsername, receiverUsername, messageText, playlistId } = req.body;
+  if (!senderUsername || !receiverUsername) {
+    return res.status(400).json({ error: 'Remetente e Destinatário são obrigatórios.' });
+  }
+
+  const cleanSender = senderUsername.trim().toLowerCase();
+  const cleanReceiver = receiverUsername.trim().toLowerCase();
+
+  try {
+    // Insert new message
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        sender_username: cleanSender,
+        receiver_username: cleanReceiver,
+        message_text: messageText || '',
+        playlist_id: playlistId || null
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, message: data });
+  } catch (err) {
+    console.error('Send Message Error:', err);
+    res.status(500).json({ error: 'Erro ao enviar mensagem.' });
   }
 });
 

@@ -10,7 +10,10 @@ const STATE = {
   routeParams: {},
   searchDebounceTimer: null,
   activeRating: 0, // Nota selecionada no modal (0.5 - 5.0)
-  playlistTracks: [] // Músicas temporárias sendo adicionadas à playlist em edição
+  playlistTracks: [], // Músicas temporárias sendo adicionadas à playlist em edição
+  socialActiveTab: 'chats', // 'chats' ou 'friends'
+  activeChatFriend: null, // username do amigo ativo no chat
+  chatPollingInterval: null // Intervalo do setInterval
 };
 
 // INICIALIZADOR DO APLICATIVO
@@ -65,6 +68,7 @@ function renderHeaderNavigation() {
     const navHtml = `
       <a href="/" class="nav-link active" data-view="dashboard"><i class="fa-solid fa-house"></i> Início</a>
       <a href="/playlists" class="nav-link" data-view="playlists"><i class="fa-solid fa-list-ul"></i> Playlists</a>
+      <a href="/social" class="nav-link" data-view="social"><i class="fa-solid fa-user-group"></i> Social</a>
       <a href="/perfil/${user.username}" class="nav-link" data-view="profile">
         <img src="${user.avatar}" alt="${user.displayName}" class="nav-avatar">
         Perfil
@@ -75,6 +79,7 @@ function renderHeaderNavigation() {
     const mobileHtml = `
       <a href="/" class="mobile-link" data-view="dashboard">Início</a>
       <a href="/playlists" class="mobile-link" data-view="playlists">Playlists</a>
+      <a href="/social" class="mobile-link" data-view="social">Social</a>
       <a href="/perfil/${user.username}" class="mobile-link" data-view="profile">Meu Perfil</a>
       <a href="#" class="mobile-link" id="mobile-btn-logout" style="color: var(--color-orange);">Sair da Conta</a>
     `;
@@ -160,6 +165,12 @@ function handleCurrentRoute() {
   let view = 'dashboard';
   let params = {};
 
+  // Limpar o polling do chat ao navegar para qualquer outra tela
+  if (STATE.chatPollingInterval) {
+    clearInterval(STATE.chatPollingInterval);
+    STATE.chatPollingInterval = null;
+  }
+
   updateNavActiveLinks(path);
 
   // Redirecionamento da landing page se deslogado
@@ -193,6 +204,8 @@ function handleCurrentRoute() {
       } else {
         view = 'playlists';
       }
+    } else if (path.startsWith('/social')) {
+      view = 'social';
     } else if (path.startsWith('/perfil/')) {
       view = 'profile';
       params.username = path.split('/')[2] || STATE.currentUser.username;
@@ -220,6 +233,8 @@ function updateNavActiveLinks(path) {
     if (path === '/' && viewName === 'dashboard') {
       link.classList.add('active');
     } else if (path.startsWith('/playlists') && viewName === 'playlists') {
+      link.classList.add('active');
+    } else if (path.startsWith('/social') && viewName === 'social') {
       link.classList.add('active');
     } else if (path.startsWith('/perfil') && viewName === 'profile') {
       link.classList.add('active');
@@ -414,6 +429,9 @@ async function renderView(view, params) {
         break;
       case 'playlist-details':
         await renderPlaylistDetailsView(container, params.id);
+        break;
+      case 'social':
+        await renderSocialView(container);
         break;
       case 'profile':
         await renderProfileView(container, params.username);
@@ -1691,4 +1709,583 @@ function formatReleaseDate(dateStr, precision) {
   if (precision === 'year') return dateStr;
   const date = new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// ==========================================================================
+// 11. SISTEMA SOCIAL: ABAS DE AMIGOS E CHAT COM PARTILHA DE PLAYLISTS
+// ==========================================================================
+
+async function renderSocialView(container) {
+  container.innerHTML = `
+    <div class="dashboard-hero" style="padding: 40px 0 30px 0; margin-bottom: 24px;">
+      <h1 class="hero-title"><i class="fa-solid fa-user-group"></i> Painel <span>Social</span></h1>
+      <p class="hero-subtitle">Conecte-se com seus amigos, converse e compartilhe suas playlists favoritas.</p>
+    </div>
+
+    <div class="social-layout">
+      <!-- Coluna Esquerda: Amigos & Conversas -->
+      <div class="social-sidebar">
+        <div class="social-sidebar-header">
+          <div class="social-tabs">
+            <button class="social-tab-btn ${STATE.socialActiveTab === 'chats' ? 'active' : ''}" id="social-tab-chats">Conversas</button>
+            <button class="social-tab-btn ${STATE.socialActiveTab === 'friends' ? 'active' : ''}" id="social-tab-friends">Buscar Amigos</button>
+          </div>
+          <div class="sidebar-search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" class="form-input sidebar-search-input" id="social-sidebar-search" placeholder="${STATE.socialActiveTab === 'chats' ? 'Filtrar conversas...' : 'Pesquisar novos amigos...'}">
+          </div>
+        </div>
+        <div class="sidebar-list" id="social-sidebar-list">
+          <div class="spinner-small" style="margin: 20px auto;"></div>
+        </div>
+      </div>
+
+      <!-- Coluna Direita: Janela de Chat -->
+      <div class="chat-window" id="social-chat-window">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+  `;
+
+  // Setup tab event listeners
+  document.getElementById('social-tab-chats').addEventListener('click', () => {
+    STATE.socialActiveTab = 'chats';
+    STATE.activeChatFriend = null;
+    if (STATE.chatPollingInterval) {
+      clearInterval(STATE.chatPollingInterval);
+      STATE.chatPollingInterval = null;
+    }
+    renderSocialView(container);
+  });
+
+  document.getElementById('social-tab-friends').addEventListener('click', () => {
+    STATE.socialActiveTab = 'friends';
+    STATE.activeChatFriend = null;
+    if (STATE.chatPollingInterval) {
+      clearInterval(STATE.chatPollingInterval);
+      STATE.chatPollingInterval = null;
+    }
+    renderSocialView(container);
+  });
+
+  // Setup search input listener
+  const searchInput = document.getElementById('social-sidebar-search');
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    if (STATE.socialActiveTab === 'friends') {
+      // Debounce user search
+      clearTimeout(STATE.searchDebounceTimer);
+      STATE.searchDebounceTimer = setTimeout(() => {
+        loadSocialSidebarList(query);
+      }, 300);
+    } else {
+      // Direct filter chats in DOM or reload
+      loadSocialSidebarList(query);
+    }
+  });
+
+  // Load initial sidebar list and chat window
+  await loadSocialSidebarList();
+  renderChatWindow();
+}
+
+async function loadSocialSidebarList(filterQuery = '') {
+  const listContainer = document.getElementById('social-sidebar-list');
+  if (!listContainer) return;
+
+  const currentUsername = STATE.currentUser.username;
+
+  try {
+    // 1. Fetch current friendships
+    const friendships = await apiFetch(`/api/friends/list?username=${currentUsername}`);
+    
+    if (STATE.socialActiveTab === 'chats') {
+      // Show accepted friends to chat with
+      const acceptedFriendships = friendships.filter(f => f.status === 'accepted');
+      
+      let friendsList = acceptedFriendships.map(f => {
+        const friendUser = f.sender_username === currentUsername ? f.receiver_username : f.sender_username;
+        return {
+          username: friendUser,
+          displayName: friendUser.charAt(0).toUpperCase() + friendUser.slice(1), // Fallback
+          avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${friendUser}`
+        };
+      });
+
+      // Filter locally by display name or username
+      if (filterQuery) {
+        const q = filterQuery.toLowerCase();
+        friendsList = friendsList.filter(f => f.username.includes(q) || f.displayName.toLowerCase().includes(q));
+      }
+
+      if (friendsList.length === 0) {
+        listContainer.innerHTML = `
+          <div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 10px;">
+            ${filterQuery ? 'Nenhum amigo encontrado.' : 'Você não possui nenhum amigo adicionado. Vá na aba <strong>"Buscar Amigos"</strong> para adicionar!'}
+          </div>
+        `;
+        return;
+      }
+
+      listContainer.innerHTML = friendsList.map(friend => {
+        const isActive = STATE.activeChatFriend === friend.username;
+        return `
+          <div class="sidebar-item ${isActive ? 'active' : ''}" data-chat-username="${friend.username}">
+            <img src="${friend.avatar}" class="sidebar-avatar" alt="${friend.username}">
+            <div class="sidebar-item-info">
+              <div class="sidebar-item-name">${escapeHTML(friend.username)}</div>
+              <div class="sidebar-item-sub">Clique para conversar</div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="font-size: 12px; color: var(--text-muted);"></i>
+          </div>
+        `;
+      }).join('');
+
+      // Setup click listeners for active chat friend selection
+      listContainer.querySelectorAll('.sidebar-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const friendUsername = item.getAttribute('data-chat-username');
+          if (STATE.activeChatFriend !== friendUsername) {
+            STATE.activeChatFriend = friendUsername;
+            
+            // Highlight item in DOM
+            listContainer.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+
+            // Redraw chat window
+            renderChatWindow();
+          }
+        });
+      });
+
+    } else {
+      // TAB: Buscar Amigos & Gerenciar Solicitações
+      if (filterQuery) {
+        // Search users using API
+        const results = await apiFetch(`/api/friends/search-users?q=${encodeURIComponent(filterQuery)}&currentUsername=${currentUsername}`);
+        
+        if (results.length === 0) {
+          listContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px;">Nenhum usuário encontrado.</div>`;
+          return;
+        }
+
+        listContainer.innerHTML = results.map(user => {
+          // Check relationship status
+          const rel = friendships.find(f => 
+            (f.sender_username === currentUsername && f.receiver_username === user.username) || 
+            (f.sender_username === user.username && f.receiver_username === currentUsername)
+          );
+
+          let actionHtml = '';
+          if (!rel) {
+            actionHtml = `<button class="btn btn-primary btn-sm btn-action-add" data-username="${user.username}" style="padding: 4px 10px; font-size:11px;"><i class="fa-solid fa-user-plus"></i> Adicionar</button>`;
+          } else if (rel.status === 'pending') {
+            if (rel.sender_username === currentUsername) {
+              actionHtml = `<span style="font-size:11px; color: var(--text-muted);"><i class="fa-solid fa-clock"></i> Pendente</span>`;
+            } else {
+              actionHtml = `
+                <div style="display:flex; gap:4px;">
+                  <button class="btn btn-primary btn-sm btn-action-accept" data-sender="${user.username}" style="padding: 4px 8px; font-size:10px; background:var(--color-green); color:#000;"><i class="fa-solid fa-check"></i></button>
+                  <button class="btn btn-secondary btn-sm btn-action-decline" data-sender="${user.username}" style="padding: 4px 8px; font-size:10px;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+              `;
+            }
+          } else {
+            actionHtml = `<span style="font-size:11px; color: var(--color-green); font-weight:600;"><i class="fa-solid fa-user-check"></i> Amigos</span>`;
+          }
+
+          return `
+            <div class="sidebar-item" style="cursor: default;">
+              <img src="${user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}" class="sidebar-avatar" alt="${user.username}">
+              <div class="sidebar-item-info">
+                <div class="sidebar-item-name">${escapeHTML(user.username)}</div>
+                <div class="sidebar-item-sub">${escapeHTML(user.display_name)}</div>
+              </div>
+              <div class="sidebar-item-action-wrap">
+                ${actionHtml}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Attach action button event listeners
+        listContainer.querySelectorAll('.btn-action-add').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const username = btn.getAttribute('data-username');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner-small" style="width:12px; height:12px; border-width:2px;"></div>';
+            try {
+              await apiFetch('/api/friends/request', {
+                method: 'POST',
+                body: JSON.stringify({ senderUsername: currentUsername, receiverUsername: username })
+              });
+              showToast('Solicitação de amizade enviada!', 'success');
+              loadSocialSidebarList(filterQuery);
+            } catch (err) {
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Adicionar';
+            }
+          });
+        });
+
+        listContainer.querySelectorAll('.btn-action-accept').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const sender = btn.getAttribute('data-sender');
+            try {
+              await apiFetch('/api/friends/accept', {
+                method: 'POST',
+                body: JSON.stringify({ senderUsername: sender, receiverUsername: currentUsername })
+              });
+              showToast('Solicitação de amizade aceita!', 'success');
+              loadSocialSidebarList(filterQuery);
+            } catch (err) {}
+          });
+        });
+
+        listContainer.querySelectorAll('.btn-action-decline').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const sender = btn.getAttribute('data-sender');
+            try {
+              await apiFetch('/api/friends/decline', {
+                method: 'POST',
+                body: JSON.stringify({ userA: sender, userB: currentUsername })
+              });
+              showToast('Solicitação recusada.', 'info');
+              loadSocialSidebarList(filterQuery);
+            } catch (err) {}
+          });
+        });
+
+      } else {
+        // Search query empty: Show Pending requests and Current Friends list
+        const pendingReceived = friendships.filter(f => f.status === 'pending' && f.receiver_username === currentUsername);
+        const accepted = friendships.filter(f => f.status === 'accepted');
+
+        let html = '';
+
+        if (pendingReceived.length > 0) {
+          html += `<div style="font-size:11px; font-weight:700; color:var(--color-orange); text-transform:uppercase; margin: 10px 4px 6px 4px; letter-spacing:0.5px;"><i class="fa-solid fa-bell"></i> Solicitações Pendentes (${pendingReceived.length})</div>`;
+          html += pendingReceived.map(req => {
+            const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${req.sender_username}`;
+            return `
+              <div class="sidebar-item" style="cursor: default; border: 1px dashed var(--color-orange); background: rgba(255,128,0,0.02); margin-bottom:4px;">
+                <img src="${avatar}" class="sidebar-avatar" alt="${req.sender_username}">
+                <div class="sidebar-item-info">
+                  <div class="sidebar-item-name">${escapeHTML(req.sender_username)}</div>
+                  <div class="sidebar-item-sub">Quer ser seu amigo!</div>
+                </div>
+                <div style="display:flex; gap:4px;">
+                  <button class="btn btn-primary btn-sm btn-action-accept" data-sender="${req.sender_username}" style="padding: 4px 8px; font-size:10px; background:var(--color-green); color:#000;"><i class="fa-solid fa-check"></i></button>
+                  <button class="btn btn-secondary btn-sm btn-action-decline" data-sender="${req.sender_username}" style="padding: 4px 8px; font-size:10px;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        html += `<div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin: 16px 4px 6px 4px; letter-spacing:0.5px;">Seus Amigos (${accepted.length})</div>`;
+        
+        if (accepted.length === 0) {
+          html += `<div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 10px;">Nenhum amigo na lista. Digite o nome de usuário no campo acima para encontrar novas pessoas!</div>`;
+        } else {
+          html += accepted.map(f => {
+            const friendUser = f.sender_username === currentUsername ? f.receiver_username : f.sender_username;
+            const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${friendUser}`;
+            return `
+              <div class="sidebar-item" style="cursor: default; margin-bottom:4px;">
+                <img src="${avatar}" class="sidebar-avatar" alt="${friendUser}">
+                <div class="sidebar-item-info">
+                  <div class="sidebar-item-name">${escapeHTML(friendUser)}</div>
+                  <div class="sidebar-item-sub">Amigo desde ${formatDate(f.created_at.split('T')[0])}</div>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-action-unfriend" data-friend="${friendUser}" style="padding: 4px 8px; font-size:11px; color:var(--color-orange); border-color:transparent; background:transparent;" title="Remover Amigo"><i class="fa-solid fa-user-minus"></i></button>
+              </div>
+            `;
+          }).join('');
+        }
+
+        listContainer.innerHTML = html;
+
+        // Attach action listeners inside empty search
+        listContainer.querySelectorAll('.btn-action-accept').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const sender = btn.getAttribute('data-sender');
+            try {
+              await apiFetch('/api/friends/accept', {
+                method: 'POST',
+                body: JSON.stringify({ senderUsername: sender, receiverUsername: currentUsername })
+              });
+              showToast('Solicitação de amizade aceita!', 'success');
+              loadSocialSidebarList();
+            } catch (err) {}
+          });
+        });
+
+        listContainer.querySelectorAll('.btn-action-decline').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const sender = btn.getAttribute('data-sender');
+            try {
+              await apiFetch('/api/friends/decline', {
+                method: 'POST',
+                body: JSON.stringify({ userA: sender, userB: currentUsername })
+              });
+              showToast('Solicitação recusada.', 'info');
+              loadSocialSidebarList();
+            } catch (err) {}
+          });
+        });
+
+        listContainer.querySelectorAll('.btn-action-unfriend').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const friend = btn.getAttribute('data-friend');
+            if (confirm(`Tem certeza que deseja desfazer a amizade com ${friend}?`)) {
+              try {
+                await apiFetch('/api/friends/decline', {
+                  method: 'POST',
+                  body: JSON.stringify({ userA: friend, userB: currentUsername })
+                });
+                showToast('Amizade desfeita.', 'info');
+                loadSocialSidebarList();
+              } catch (err) {}
+            }
+          });
+        });
+      }
+    }
+  } catch (error) {
+    listContainer.innerHTML = `<div style="text-align: center; color: var(--color-orange); padding: 20px;">Erro ao conectar com o servidor.</div>`;
+  }
+}
+
+async function renderChatWindow() {
+  const windowContainer = document.getElementById('social-chat-window');
+  if (!windowContainer) return;
+
+  // Clear previous polling loop first
+  if (STATE.chatPollingInterval) {
+    clearInterval(STATE.chatPollingInterval);
+    STATE.chatPollingInterval = null;
+  }
+
+  if (!STATE.activeChatFriend) {
+    windowContainer.innerHTML = `
+      <div class="social-empty-state">
+        <i class="fa-solid fa-comments"></i>
+        <h3>Escolha um amigo para iniciar</h3>
+        <p>Selecione um dos seus amigos da lista à esquerda para carregar o histórico do chat ou compartilhar músicas e playlists.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const friend = STATE.activeChatFriend;
+  const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${friend}`;
+
+  windowContainer.innerHTML = `
+    <!-- Header do Chat -->
+    <div class="chat-header">
+      <img src="${avatar}" class="sidebar-avatar" alt="${friend}">
+      <div class="chat-header-info">
+        <h3>${escapeHTML(friend)}</h3>
+        <p><i class="fa-solid fa-circle" style="color:var(--color-green); font-size:8px; margin-right:4px;"></i> Conversa direta conectada no Supabase</p>
+      </div>
+    </div>
+
+    <!-- Lista de Mensagens -->
+    <div class="chat-messages" id="chat-messages-container">
+      <div class="spinner-small" style="margin: auto;"></div>
+    </div>
+
+    <!-- Área de Input -->
+    <form class="chat-input-area" id="chat-send-form">
+      <button type="button" class="chat-btn-share" id="chat-btn-share-playlist" title="Compartilhar Playlist"><i class="fa-solid fa-compact-disc"></i></button>
+      <input type="text" class="form-input chat-input-text" id="chat-message-input" placeholder="Envie uma mensagem para ${friend}..." autocomplete="off" required>
+      <button type="submit" class="chat-btn-send" title="Enviar Mensagem"><i class="fa-solid fa-paper-plane"></i></button>
+    </form>
+  `;
+
+  // Attach send form submit listener
+  const form = document.getElementById('chat-send-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('chat-message-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    
+    try {
+      await apiFetch('/api/chat/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          senderUsername: STATE.currentUser.username,
+          receiverUsername: friend,
+          messageText: text
+        })
+      });
+      // Refresh messages instantly
+      await refreshChatMessages();
+    } catch (err) {
+      showToast('Erro ao enviar mensagem.', 'warning');
+    }
+  });
+
+  // Attach share playlist click listener
+  document.getElementById('chat-btn-share-playlist').addEventListener('click', () => {
+    openSharePlaylistModal();
+  });
+
+  // Load messages initially and start polling
+  await refreshChatMessages();
+  
+  // Set up dynamic polling every 3 seconds while chat window is active
+  STATE.chatPollingInterval = setInterval(() => {
+    if (STATE.currentView === 'social' && STATE.activeChatFriend === friend) {
+      refreshChatMessages();
+    } else {
+      // Self-cleanup just in case
+      clearInterval(STATE.chatPollingInterval);
+      STATE.chatPollingInterval = null;
+    }
+  }, 3000);
+}
+
+async function refreshChatMessages() {
+  const container = document.getElementById('chat-messages-container');
+  if (!container) return;
+
+  const currentUsername = STATE.currentUser.username;
+  const friend = STATE.activeChatFriend;
+
+  try {
+    const messages = await apiFetch(`/api/chat/messages?user=${currentUsername}&friend=${friend}`);
+    
+    if (messages.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; margin: auto; padding: 40px; color: var(--text-muted); font-size:13px;">
+          Nenhuma mensagem nesta conversa. Escreva a primeira mensagem ou envie uma playlist para quebrar o gelo! 🧊
+        </div>
+      `;
+      return;
+    }
+
+    // Capture whether user is scrolled to bottom
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+
+    container.innerHTML = messages.map(msg => {
+      const isSent = msg.sender_username === currentUsername;
+      const date = new Date(msg.created_at);
+      const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      
+      let playlistHtml = '';
+      if (msg.playlist_id) {
+        playlistHtml = `
+          <div class="shared-playlist-card" data-shared-playlist-id="${msg.playlist_id}">
+            <div class="playlist-card-icon"><i class="fa-solid fa-compact-disc"></i></div>
+            <div class="playlist-card-info">
+              <div class="playlist-card-name">Playlist Compartilhada</div>
+              <div class="playlist-card-desc">Clique para ver as faixas</div>
+            </div>
+            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:11px; margin-left:4px;"></i>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="message-bubble-wrap ${isSent ? 'sent' : 'received'}">
+          <div class="message-bubble">
+            ${msg.message_text ? `<div>${escapeHTML(msg.message_text)}</div>` : ''}
+            ${playlistHtml}
+          </div>
+          <span class="message-time">${timeStr}</span>
+        </div>
+      `;
+    }).join('');
+
+    // Setup playlist click redirection listeners
+    container.querySelectorAll('.shared-playlist-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = card.getAttribute('data-shared-playlist-id');
+        navigateTo(`/playlists/${id}`);
+      });
+    });
+
+    // Auto-scroll to bottom if they were already at the bottom or if it is the first load
+    if (isAtBottom || container.querySelector('.spinner-small')) {
+      container.scrollTop = container.scrollHeight;
+    }
+
+  } catch (error) {
+    console.error('Refresh messages error:', error);
+  }
+}
+
+async function openSharePlaylistModal() {
+  const modal = document.getElementById('share-playlist-modal');
+  const container = document.getElementById('share-playlist-list-container');
+  if (!modal || !container) return;
+
+  container.innerHTML = '<div class="spinner-small" style="margin: 20px auto;"></div>';
+  modal.classList.add('active');
+
+  // Close modal button setup
+  const closeBtn = document.getElementById('share-playlist-modal-close');
+  const closeModalFunc = () => {
+    modal.classList.remove('active');
+    closeBtn.removeEventListener('click', closeModalFunc);
+  };
+  closeBtn.addEventListener('click', closeModalFunc);
+
+  try {
+    const playlists = await apiFetch(`/api/playlists?username=${STATE.currentUser.username}`);
+    
+    if (playlists.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; color:var(--text-muted); font-size:13px; padding:20px;">
+          Você não possui nenhuma playlist criada para compartilhar. Crie uma playlist primeiro na aba "Playlists"!
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = playlists.map(playlist => {
+      const tracksCount = playlist.tracks ? playlist.tracks.length : 0;
+      return `
+        <div class="share-playlist-item" data-share-id="${playlist.id}">
+          <div>
+            <h4>${escapeHTML(playlist.name)}</h4>
+            <p>${tracksCount} música(s) • ${escapeHTML(playlist.description || 'Sem descrição')}</p>
+          </div>
+          <i class="fa-solid fa-paper-plane" style="color:var(--color-green); font-size: 14px;"></i>
+        </div>
+      `;
+    }).join('');
+
+    // Setup choose playlist click listeners
+    container.querySelectorAll('.share-playlist-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        const playlistId = item.getAttribute('data-share-id');
+        modal.classList.remove('active');
+
+        try {
+          await apiFetch('/api/chat/messages', {
+            method: 'POST',
+            body: JSON.stringify({
+              senderUsername: STATE.currentUser.username,
+              receiverUsername: STATE.activeChatFriend,
+              messageText: 'Olhe a minha playlist compartilhada!',
+              playlistId: playlistId
+            })
+          });
+          showToast('Playlist compartilhada no chat!', 'success');
+          await refreshChatMessages();
+        } catch (err) {
+          showToast('Erro ao compartilhar playlist.', 'warning');
+        }
+      });
+    });
+
+  } catch (err) {
+    container.innerHTML = '<div style="text-align:center; color:var(--color-orange); padding:20px;">Erro ao carregar suas playlists.</div>';
+  }
 }
