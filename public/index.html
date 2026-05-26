@@ -1,21 +1,25 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Musicboxd | Compartilhe seu amor por música</title>
-  
-  <!-- Fontes do Google -->
+
+  <!-- Fontes do Google! -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
   <!-- Font Awesome para ícones premium -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <!-- Estilos customizados -->
   <link rel="stylesheet" href="/index.css">
 </head>
+
 <body>
 
   <!-- Barra de Navegação Superior -->
@@ -30,7 +34,8 @@
       <!-- Barra de Pesquisa Rápida (Oculta para visitantes deslogados) -->
       <div class="header-search" id="header-search-wrap" style="display: none;">
         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="text" id="global-search-input" placeholder="Pesquisar músicas, álbuns ou artistas..." autocomplete="off">
+        <input type="text" id="global-search-input" placeholder="Pesquisar músicas, álbuns ou artistas..."
+          autocomplete="off">
         <div id="search-autocomplete-results" class="search-autocomplete"></div>
       </div>
 
@@ -74,7 +79,8 @@
         <span class="spotify-credit">Dados fornecidos pela <i class="fa-brands fa-spotify"></i> Spotify API</span>
       </div>
       <div class="footer-right">
-        <a href="https://developer.spotify.com" target="_blank" class="footer-link">Termos de Desenvolvedor da Spotify</a>
+        <a href="https://developer.spotify.com" target="_blank" class="footer-link">Termos de Desenvolvedor da
+          Spotify</a>
       </div>
     </div>
   </footer>
@@ -87,16 +93,16 @@
   <div class="modal-overlay" id="auth-modal">
     <div class="modal-box glassmorphism scale-up">
       <button class="modal-close" id="auth-modal-close"><i class="fa-solid fa-xmark"></i></button>
-      
+
       <div class="modal-header">
         <div class="auth-toggle-headers">
           <button id="auth-login-tab" class="auth-tab-btn active">Entrar</button>
           <button id="auth-signup-tab" class="auth-tab-btn">Cadastrar-se</button>
         </div>
       </div>
-      
+
       <div class="modal-body" style="padding-top: 10px;">
-        
+
         <!-- Formulário de Login -->
         <form id="auth-login-form" class="auth-form-panel active">
           <div class="form-group">
@@ -111,7 +117,7 @@
             <i class="fa-solid fa-right-to-bracket"></i> Entrar na Conta
           </button>
         </form>
-        
+
         <!-- Formulário de Cadastro -->
         <form id="auth-signup-form" class="auth-form-panel">
           <div class="form-group">
@@ -124,7 +130,8 @@
           </div>
           <div class="form-group" style="margin-top: 12px;">
             <label class="form-label" for="signup-password">Senha:</label>
-            <input type="password" id="signup-password" class="form-input" placeholder="Crie uma senha de acesso" required>
+            <input type="password" id="signup-password" class="form-input" placeholder="Crie uma senha de acesso"
+              required>
           </div>
           <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 24px; height: 42px;">
             <i class="fa-solid fa-user-plus"></i> Criar Conta & Acessar
@@ -139,11 +146,11 @@
   <div class="modal-overlay" id="log-modal">
     <div class="modal-box glassmorphism scale-up">
       <button class="modal-close" id="log-modal-close"><i class="fa-solid fa-xmark"></i></button>
-      
+
       <div class="modal-header">
         <h3 id="log-modal-title">Avaliar Música</h3>
       </div>
-      
+
       <div class="modal-body">
         <div class="item-log-preview">
           <img id="log-item-cover" src="https://placehold.co/120" alt="Capa">
@@ -153,12 +160,12 @@
             <span id="log-item-badge" class="item-badge">Música</span>
           </div>
         </div>
-        
+
         <form id="log-form" class="log-form-container">
           <input type="hidden" id="log-item-id">
           <input type="hidden" id="log-item-type">
           <input type="hidden" id="log-item-image">
-          
+
           <div class="form-group">
             <label class="form-label">Sua nota:</label>
             <div class="star-rating-selector" id="star-selector">
@@ -172,26 +179,28 @@
               <span class="rating-display-value" id="rating-value">Sem nota</span>
             </div>
           </div>
-          
+
           <div class="form-group row-align">
             <label class="form-label pointer" for="log-liked">
               <i class="fa-regular fa-heart heart-checkbox" id="heart-icon"></i> Marcar como favorita
             </label>
             <input type="checkbox" id="log-liked" style="display: none;">
           </div>
-          
+
           <div class="form-group">
             <label class="form-label" for="log-date">Data em que ouviu:</label>
             <input type="date" id="log-date" class="form-input">
           </div>
-          
+
           <div class="form-group">
             <label class="form-label" for="log-review">Sua opinião (opcional):</label>
-            <textarea id="log-review" rows="4" class="form-input form-textarea" placeholder="O que você achou dessa música/álbum? Destaques, críticas, vibe..."></textarea>
+            <textarea id="log-review" rows="4" class="form-input form-textarea"
+              placeholder="O que você achou dessa música/álbum? Destaques, críticas, vibe..."></textarea>
           </div>
-          
+
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" id="log-delete-btn" style="display: none;">Excluir Review</button>
+            <button type="button" class="btn btn-secondary" id="log-delete-btn" style="display: none;">Excluir
+              Review</button>
             <button type="submit" class="btn btn-primary" id="log-save-btn">Salvar Avaliação</button>
           </div>
         </form>
@@ -203,11 +212,11 @@
   <div class="modal-overlay" id="profile-modal">
     <div class="modal-box glassmorphism scale-up">
       <button class="modal-close" id="profile-modal-close"><i class="fa-solid fa-xmark"></i></button>
-      
+
       <div class="modal-header">
         <h3>Editar Perfil</h3>
       </div>
-      
+
       <div class="modal-body">
         <form id="profile-form">
           <div class="form-group">
@@ -216,7 +225,8 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="profile-bio">Bio:</label>
-            <textarea id="profile-bio" rows="3" class="form-input form-textarea" placeholder="Fale um pouco sobre seu gosto musical..."></textarea>
+            <textarea id="profile-bio" rows="3" class="form-input form-textarea"
+              placeholder="Fale um pouco sobre seu gosto musical..."></textarea>
           </div>
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" id="profile-cancel-btn">Cancelar</button>
@@ -231,39 +241,42 @@
   <div class="modal-overlay" id="playlist-modal">
     <div class="modal-box glassmorphism scale-up">
       <button class="modal-close" id="playlist-modal-close"><i class="fa-solid fa-xmark"></i></button>
-      
+
       <div class="modal-header">
         <h3 id="playlist-modal-title">Criar Playlist</h3>
       </div>
-      
+
       <div class="modal-body">
         <form id="playlist-form">
           <input type="hidden" id="playlist-edit-id">
-          
+
           <div class="form-group">
             <label class="form-label" for="playlist-name-input">Nome da Playlist:</label>
-            <input type="text" id="playlist-name-input" class="form-input" placeholder="Ex: Viagem Noturna, Clássicos do Rock..." required>
+            <input type="text" id="playlist-name-input" class="form-input"
+              placeholder="Ex: Viagem Noturna, Clássicos do Rock..." required>
           </div>
-          
+
           <div class="form-group">
             <label class="form-label" for="playlist-desc-input">Descrição (opcional):</label>
-            <textarea id="playlist-desc-input" rows="2" class="form-input form-textarea" placeholder="Descreva o clima da sua playlist..."></textarea>
+            <textarea id="playlist-desc-input" rows="2" class="form-input form-textarea"
+              placeholder="Descreva o clima da sua playlist..."></textarea>
           </div>
-          
+
           <div class="playlist-manager-tracks">
             <label class="form-label">Músicas na Playlist:</label>
-            
+
             <div class="playlist-add-track-search">
               <i class="fa-solid fa-plus add-icon"></i>
-              <input type="text" id="playlist-track-search-input" placeholder="Pesquisar e adicionar música à playlist..." autocomplete="off">
+              <input type="text" id="playlist-track-search-input"
+                placeholder="Pesquisar e adicionar música à playlist..." autocomplete="off">
               <div id="playlist-search-results" class="search-autocomplete"></div>
             </div>
-            
+
             <div class="playlist-added-list" id="playlist-added-tracks-container">
               <p class="empty-list-message">Nenhuma música adicionada ainda.</p>
             </div>
           </div>
-          
+
           <div class="form-actions" style="margin-top: 20px;">
             <button type="button" class="btn btn-secondary" id="playlist-cancel-btn">Cancelar</button>
             <button type="submit" class="btn btn-primary" id="playlist-submit-btn">Criar Playlist</button>
@@ -279,4 +292,5 @@
   <!-- Script principal do aplicativo -->
   <script src="/index.js"></script>
 </body>
+
 </html>
