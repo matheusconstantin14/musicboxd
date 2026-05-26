@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ==========================================
 // SUPABASE CLIENT INITIALIZATION
@@ -629,7 +629,7 @@ app.delete('/api/playlists/:id', async (req, res) => {
 
 // Wildcard fallback to serve index.html for SPA router
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // Start listening
