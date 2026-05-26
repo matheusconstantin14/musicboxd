@@ -632,3 +632,5 @@ app.listen(PORT, () => {
   console.log(`Connected to Supabase PostgreSQL database.`);
   console.log(`====================================================`);
 });
+
+module.exports = app;
