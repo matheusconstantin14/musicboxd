@@ -18,14 +18,22 @@ app.use(express.static(path.join(__dirname, 'public')));
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 
+let supabase = null;
 if (!supabaseUrl || !supabaseKey) {
-  console.error('CRITICAL ERROR: Supabase credentials are not configured in .env');
-  process.exit(1);
+  console.warn('WARNING: Supabase credentials are not configured in environment variables. Database features will be unavailable.');
+} else {
+  // Initializing Supabase client
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('Supabase client successfully initialized for URL:', supabaseUrl);
 }
 
-// Initializing Supabase client
-const supabase = createClient(supabaseUrl, supabaseKey);
-console.log('Supabase client successfully initialized for URL:', supabaseUrl);
+// Middleware to check if Supabase is initialized
+app.use(['/api/auth', '/api/profile', '/api/reviews', '/api/playlists'], (req, res, next) => {
+  if (!supabase) {
+    return res.status(500).json({ error: 'Supabase credentials are not configured on the server. Please configure SUPABASE_URL and SUPABASE_KEY in Vercel settings.' });
+  }
+  next();
+});
 
 // ==========================================
 // SPOTIFY TOKEN MANAGER (Client Credentials Flow)
