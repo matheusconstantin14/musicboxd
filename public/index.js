@@ -13,7 +13,10 @@ const STATE = {
   playlistTracks: [], // Músicas temporárias sendo adicionadas à playlist em edição
   socialActiveTab: 'chats', // 'chats' ou 'friends'
   activeChatFriend: null, // username do amigo ativo no chat
-  chatPollingInterval: null // Intervalo do setInterval
+  chatPollingInterval: null, // Intervalo do setInterval
+  lastReadTimestamps: JSON.parse(localStorage.getItem('lastReadTimestamps') || '{}'),
+  unreadChats: {},
+  globalMessageInterval: null
 };
 
 // INICIALIZADOR DO APLICATIVO
@@ -35,6 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupModalListeners();
   setupStarRatingSelector();
   setupAuthTabSwitching();
+  
+  if (isLoggedIn()) {
+    startGlobalMessagePolling();
+  }
   
   // Renderizar a rota inicial
   handleCurrentRoute();
@@ -118,6 +125,7 @@ function renderHeaderNavigation() {
 }
 
 function performLogout() {
+  stopGlobalMessagePolling();
   localStorage.removeItem('user');
   STATE.currentUser = null;
   showToast('Você encerrou sua sessão.', 'info');
@@ -1165,6 +1173,7 @@ function setupModalListeners() {
         showToast(`Bem-vindo, ${data.user.displayName}!`, 'success');
         
         renderHeaderNavigation();
+        startGlobalMessagePolling();
         navigateTo('/');
       }
     } catch (err) {
@@ -1194,6 +1203,7 @@ function setupModalListeners() {
         showToast('Cadastro realizado com sucesso!', 'success');
         
         renderHeaderNavigation();
+        startGlobalMessagePolling();
         navigateTo('/');
       }
     } catch (err) {
@@ -1829,6 +1839,8 @@ async function loadSocialSidebarList(filterQuery = '') {
 
       listContainer.innerHTML = friendsList.map(friend => {
         const isActive = STATE.activeChatFriend === friend.username;
+        const unreadCount = STATE.unreadChats[friend.username] || 0;
+        const badgeHtml = unreadCount > 0 ? `<span class="sidebar-badge sidebar-badge-unread" style="margin-left: auto; background: var(--color-orange); color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 50%;">${unreadCount}</span>` : '';
         return `
           <div class="sidebar-item ${isActive ? 'active' : ''}" data-chat-username="${friend.username}">
             <img src="${friend.avatar}" class="sidebar-avatar" alt="${friend.username}">
@@ -1836,6 +1848,7 @@ async function loadSocialSidebarList(filterQuery = '') {
               <div class="sidebar-item-name">${escapeHTML(friend.username)}</div>
               <div class="sidebar-item-sub">Clique para conversar</div>
             </div>
+            ${badgeHtml}
             <i class="fa-solid fa-chevron-right" style="font-size: 12px; color: var(--text-muted);"></i>
           </div>
         `;
@@ -2215,6 +2228,20 @@ async function refreshChatMessages() {
       container.scrollTop = container.scrollHeight;
     }
 
+    if (messages.length > 0) {
+      const latestMsg = messages[messages.length - 1];
+      if (latestMsg.created_at > (STATE.lastReadTimestamps[friend] || '')) {
+        STATE.lastReadTimestamps[friend] = latestMsg.created_at;
+        localStorage.setItem('lastReadTimestamps', JSON.stringify(STATE.lastReadTimestamps));
+        
+        if (STATE.unreadChats[friend]) {
+          delete STATE.unreadChats[friend];
+        }
+        const badgeEl = document.querySelector(`[data-chat-username="${friend}"] .sidebar-badge-unread`);
+        if (badgeEl) badgeEl.remove();
+      }
+    }
+
   } catch (error) {
     console.error('Refresh messages error:', error);
   }
@@ -2288,4 +2315,124 @@ async function openSharePlaylistModal() {
   } catch (err) {
     container.innerHTML = '<div style="text-align:center; color:var(--color-orange); padding:20px;">Erro ao carregar suas playlists.</div>';
   }
+}
+
+// Global Message Polling and Notifications logic
+function startGlobalMessagePolling() {
+  if (STATE.globalMessageInterval) return;
+  checkNewMessages();
+  STATE.globalMessageInterval = setInterval(checkNewMessages, 5000);
+}
+
+function stopGlobalMessagePolling() {
+  if (STATE.globalMessageInterval) {
+    clearInterval(STATE.globalMessageInterval);
+    STATE.globalMessageInterval = null;
+  }
+}
+
+async function checkNewMessages() {
+  if (!isLoggedIn()) return;
+  const currentUsername = STATE.currentUser.username;
+  try {
+    const messages = await apiFetch(`/api/chat/all-messages?username=${currentUsername}`);
+    
+    const unreadMap = {};
+    const newMessagesGrouped = {};
+
+    messages.forEach(msg => {
+      if (msg.receiver_username === currentUsername) {
+        const sender = msg.sender_username;
+        const lastRead = STATE.lastReadTimestamps[sender] || '';
+        const msgTime = msg.created_at;
+
+        if (msgTime > lastRead) {
+          unreadMap[sender] = (unreadMap[sender] || 0) + 1;
+          
+          if (!newMessagesGrouped[sender] || msgTime > newMessagesGrouped[sender].created_at) {
+            newMessagesGrouped[sender] = msg;
+          }
+        }
+      }
+    });
+
+    if (STATE.currentView === 'social' && STATE.activeChatFriend) {
+      const activeFriend = STATE.activeChatFriend;
+      const friendMessages = messages.filter(msg => 
+        (msg.sender_username === activeFriend && msg.receiver_username === currentUsername) ||
+        (msg.sender_username === currentUsername && msg.receiver_username === activeFriend)
+      );
+      if (friendMessages.length > 0) {
+        const latestTime = friendMessages[friendMessages.length - 1].created_at;
+        if (latestTime > (STATE.lastReadTimestamps[activeFriend] || '')) {
+          STATE.lastReadTimestamps[activeFriend] = latestTime;
+          localStorage.setItem('lastReadTimestamps', JSON.stringify(STATE.lastReadTimestamps));
+          delete unreadMap[activeFriend];
+          delete newMessagesGrouped[activeFriend];
+        }
+      }
+    }
+
+    const notifiedList = JSON.parse(localStorage.getItem('notifiedMessages') || '[]');
+    let updatedNotified = [...notifiedList];
+    let hasNewUnread = false;
+    
+    Object.entries(newMessagesGrouped).forEach(([sender, msg]) => {
+      if (STATE.currentView === 'social' && STATE.activeChatFriend === sender) {
+        return;
+      }
+      
+      const msgKey = `${msg.id || msg.created_at}`;
+      if (!notifiedList.includes(msgKey)) {
+        showToast(`Nova mensagem de ${sender}: "${msg.message_text || 'Playlist compartilhada'}"`, 'info');
+        updatedNotified.push(msgKey);
+        hasNewUnread = true;
+      }
+    });
+    
+    if (updatedNotified.length > 100) {
+      updatedNotified = updatedNotified.slice(updatedNotified.length - 100);
+    }
+    localStorage.setItem('notifiedMessages', JSON.stringify(updatedNotified));
+
+    STATE.unreadChats = unreadMap;
+
+    updateSidebarUnreadBadges();
+  } catch (err) {
+    console.error('Error in checkNewMessages:', err);
+  }
+}
+
+function updateSidebarUnreadBadges() {
+  document.querySelectorAll('[data-chat-username]').forEach(item => {
+    const friend = item.getAttribute('data-chat-username');
+    const unreadCount = STATE.unreadChats[friend] || 0;
+    let badgeEl = item.querySelector('.sidebar-badge-unread');
+    
+    if (unreadCount > 0) {
+      if (!badgeEl) {
+        badgeEl = document.createElement('span');
+        badgeEl.className = 'sidebar-badge sidebar-badge-unread';
+        badgeEl.style.marginLeft = 'auto';
+        badgeEl.style.background = 'var(--color-orange)';
+        badgeEl.style.color = '#fff';
+        badgeEl.style.fontSize = '10px';
+        badgeEl.style.fontWeight = 'bold';
+        badgeEl.style.padding = '2px 6px';
+        badgeEl.style.borderRadius = '50%';
+        
+        const chevron = item.querySelector('.fa-chevron-right');
+        if (chevron) {
+          item.insertBefore(badgeEl, chevron);
+        } else {
+          item.appendChild(badgeEl);
+        }
+      }
+      badgeEl.textContent = unreadCount;
+    } else {
+      if (badgeEl) {
+        badgeEl.remove();
+      }
+    }
+  });
 }

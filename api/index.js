@@ -72,7 +72,7 @@ async function getSpotifyToken() {
   const data = await response.json();
   cachedToken = data.access_token;
   tokenExpiresAt = Date.now() + (data.expires_in * 1000);
-  
+
   return cachedToken;
 }
 
@@ -240,8 +240,8 @@ app.post('/api/auth/signup', async (req, res) => {
       throw insertError;
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       user: mapUserFromDB(newUser)
     });
   } catch (err) {
@@ -392,7 +392,7 @@ app.post('/api/profile/:username/favorites', async (req, res) => {
 
     const favorites = user.favorites || { tracks: [], albums: [], artists: [] };
     const listName = type === 'track' ? 'tracks' : (type === 'album' ? 'albums' : 'artists');
-    
+
     if (!favorites[listName]) favorites[listName] = [];
     const existingIdx = favorites[listName].findIndex(item => item.id === id);
 
@@ -802,6 +802,31 @@ app.get('/api/chat/messages', async (req, res) => {
     res.json(messages || []);
   } catch (err) {
     console.error('Get Messages Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar mensagens.' });
+  }
+});
+
+// Get all messages involving the user for notifications
+app.get('/api/chat/all-messages', async (req, res) => {
+  const { username } = req.query;
+  if (!username) {
+    return res.status(400).json({ error: 'Username é obrigatório.' });
+  }
+
+  const cleanUsername = username.trim().toLowerCase();
+
+  try {
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`sender_username.eq.${cleanUsername},receiver_username.eq.${cleanUsername}`)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(messages || []);
+  } catch (err) {
+    console.error('Get All Messages Error:', err);
     res.status(500).json({ error: 'Erro ao carregar mensagens.' });
   }
 });
