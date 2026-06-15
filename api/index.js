@@ -107,12 +107,13 @@ app.get('/api/spotify/search', async (req, res) => {
       return res.status(400).json({ error: 'Search query parameter "q" is required' });
     }
 
-    // Spotify exige limit como inteiro entre 1 e 50 e offset >= 0.
-    // Sanitizamos qualquer valor inválido (vazio, NaN, fora do intervalo) para evitar "Invalid limit".
+    // Esta aplicação Spotify rejeita limit > 10 (retorna "Invalid limit"), apesar de o
+    // máximo documentado da API ser 50. Por isso fixamos o teto em 10 e o padrão em 10.
+    const SPOTIFY_MAX_LIMIT = 10;
     const parsedLimit = parseInt(limit, 10);
     const safeLimit = Number.isInteger(parsedLimit)
-      ? Math.min(50, Math.max(1, parsedLimit))
-      : 20;
+      ? Math.min(SPOTIFY_MAX_LIMIT, Math.max(1, parsedLimit))
+      : SPOTIFY_MAX_LIMIT;
     const parsedOffset = parseInt(offset, 10);
     const safeOffset = Number.isInteger(parsedOffset) && parsedOffset > 0
       ? Math.min(1000, parsedOffset)
