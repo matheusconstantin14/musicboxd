@@ -18,7 +18,8 @@
   /* Cores de Acentuação (Spotify + Letterboxd Hybrid) */
   --color-spotify: #1DB954;
   --color-orange: #ff8000;
-  --color-green: #00e054;
+  /* Cor primária da marca Musicboxd — amarelo vibrante (substitui o antigo verde "estilo Spotify") */
+  --color-green: #ffd60a;
   --color-blue: #40bcf4;
   --color-border: rgba(255, 255, 255, 0.08);
   --color-border-hover: rgba(255, 255, 255, 0.18);
@@ -32,7 +33,7 @@
   --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
-  --glow-green: 0 0 15px rgba(0, 224, 84, 0.3);
+  --glow-green: 0 0 15px rgba(255, 214, 10, 0.3);
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --border-radius-sm: 6px;
@@ -167,7 +168,7 @@ button {
   color: var(--color-green);
   font-size: 26px;
   display: flex;
-  filter: drop-shadow(0 0 8px rgba(0, 224, 84, 0.4));
+  filter: drop-shadow(0 0 8px rgba(255, 214, 10, 0.4));
 }
 .logo-text {
   background: linear-gradient(135deg, var(--text-primary) 40%, var(--text-secondary));
@@ -195,7 +196,7 @@ button {
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--color-green);
   outline: none;
-  box-shadow: 0 0 15px rgba(0, 224, 84, 0.15);
+  box-shadow: 0 0 15px rgba(255, 214, 10, 0.15);
 }
 .search-icon {
   position: absolute;
@@ -293,6 +294,14 @@ button {
   color: var(--text-primary);
   background: rgba(255, 255, 255, 0.05);
 }
+/* Ícones da navegação em amarelo vibrante (o texto permanece claro) */
+.nav-link i {
+  color: var(--color-green);
+}
+/* Exceção: o ícone de "Sair" mantém o laranja de alerta */
+#nav-btn-logout i {
+  color: inherit;
+}
 .nav-avatar {
   width: 24px;
   height: 24px;
@@ -368,7 +377,7 @@ button {
   color: #000000;
 }
 .btn-primary:hover {
-  background: #00f35c;
+  background: #ffe14d;
   box-shadow: var(--glow-green);
   transform: translateY(-1px);
 }
@@ -396,7 +405,7 @@ button {
 .landing-hero {
   text-align: center;
   padding: 80px 24px 70px 24px;
-  background: radial-gradient(circle at center, rgba(0, 224, 84, 0.08) 0%, transparent 60%);
+  background: radial-gradient(circle at center, rgba(255, 214, 10, 0.08) 0%, transparent 60%);
   border-radius: var(--border-radius-lg);
   margin-bottom: 50px;
 }
@@ -405,7 +414,7 @@ button {
   color: var(--color-green);
   margin-bottom: 12px;
   display: inline-flex;
-  filter: drop-shadow(0 0 12px rgba(0, 224, 84, 0.4));
+  filter: drop-shadow(0 0 12px rgba(255, 214, 10, 0.4));
 }
 .landing-title {
   font-family: var(--font-heading);
@@ -453,7 +462,7 @@ button {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: rgba(0, 224, 84, 0.1);
+  background: rgba(255, 214, 10, 0.1);
   color: var(--color-green);
   display: flex;
   align-items: center;
@@ -504,7 +513,7 @@ button {
 .dashboard-hero {
   text-align: center;
   padding: 60px 0 50px 0;
-  background: radial-gradient(circle at center, rgba(0, 224, 84, 0.06) 0%, transparent 60%);
+  background: radial-gradient(circle at center, rgba(255, 214, 10, 0.06) 0%, transparent 60%);
   border-radius: var(--border-radius-lg);
   margin-bottom: 40px;
 }
@@ -834,9 +843,9 @@ button {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  background: rgba(0, 224, 84, 0.1);
+  background: rgba(255, 214, 10, 0.1);
   color: var(--color-green);
-  border: 1px solid rgba(0, 224, 84, 0.2);
+  border: 1px solid rgba(255, 214, 10, 0.2);
   padding: 4px 10px;
   border-radius: 30px;
   margin-bottom: 10px;
@@ -997,7 +1006,7 @@ button {
 }
 .histogram-bar:hover {
   opacity: 1;
-  background: #00f35c;
+  background: #ffe14d;
   box-shadow: var(--glow-green);
 }
 /* Tooltip no Histograma */
@@ -1523,8 +1532,8 @@ button {
   color: #ffffff;
 }
 .toast-success {
-  background: rgba(0, 224, 84, 0.95);
-  border-color: rgba(0, 224, 84, 0.2);
+  background: rgba(255, 214, 10, 0.95);
+  border-color: rgba(255, 214, 10, 0.2);
   color: #000000;
 }
 .toast-info {
@@ -1741,8 +1750,8 @@ button {
 }
 
 .sidebar-item.active {
-  background: rgba(0, 224, 84, 0.08);
-  border: 1px solid rgba(0, 224, 84, 0.15);
+  background: rgba(255, 214, 10, 0.08);
+  border: 1px solid rgba(255, 214, 10, 0.15);
 }
 
 .sidebar-avatar {
@@ -1899,7 +1908,7 @@ button {
 .playlist-card-icon {
   width: 44px;
   height: 44px;
-  background: rgba(0, 224, 84, 0.1);
+  background: rgba(255, 214, 10, 0.1);
   color: var(--color-green);
   border-radius: var(--border-radius-sm);
   display: flex;
@@ -1966,7 +1975,7 @@ button {
 }
 
 .chat-btn-share:hover {
-  background: rgba(0, 224, 84, 0.1);
+  background: rgba(255, 214, 10, 0.1);
   transform: scale(1.05);
 }
 
@@ -1994,7 +2003,7 @@ button {
 
 .chat-btn-send:hover {
   transform: scale(1.05);
-  background: #00f35c;
+  background: #ffe14d;
   box-shadow: var(--glow-green);
 }
 
@@ -2021,7 +2030,7 @@ button {
 
 .share-playlist-item:hover {
   border-color: var(--color-green);
-  background: rgba(0, 224, 84, 0.05);
+  background: rgba(255, 214, 10, 0.05);
 }
 
 .share-playlist-item h4 {

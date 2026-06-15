@@ -887,7 +887,7 @@ async function renderPlaylistsView(container) {
                 <span class="card-title">${escapeHTML(p.name)}</span>
                 <span class="card-artist">${p.tracks.length} músicas</span>
                 <div class="card-meta">
-                  <span class="card-badge" style="color: var(--color-green); border-color: rgba(0, 224, 84, 0.2);">Playlist</span>
+                  <span class="card-badge" style="color: var(--color-green); border-color: rgba(255, 214, 10, 0.2);">Playlist</span>
                 </div>
               </div>
             </div>
