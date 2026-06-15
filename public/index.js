@@ -734,19 +734,45 @@ async function renderDetailsView(container, type, id) {
       </div>
     `;
   } else if (type === 'artist') {
-    const topTracks = await apiFetch(`/api/spotify/artists/${id}/top-tracks`);
+    // O endpoint top-tracks é proibido (403) para esta aplicação Spotify, então
+    // exibimos a discografia (álbuns/singles). Resiliente: nunca derruba a página.
+    let albumItems = [];
+    try {
+      const albumsData = await apiFetch(`/api/spotify/artists/${id}/albums`);
+      const seen = new Set();
+      albumItems = (albumsData.items || []).filter(al => {
+        const key = (al.name || '').toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    } catch (err) {
+      // Artista sem álbuns acessíveis: segue com lista vazia.
+    }
+
     extraContentHtml = `
       <div class="tracklist-container">
-        <h3 class="tracklist-title">Músicas mais Populares</h3>
-        ${(topTracks.tracks || []).slice(0, 8).map((t, idx) => `
-          <div class="track-row" onclick="navigateTo('/track/${t.id}')">
-            <div class="track-row-left">
-              <span class="track-num">${idx + 1}</span>
-              <span class="track-name">${t.name}</span>
-            </div>
-            <span class="track-duration">${formatDuration(t.duration_ms)}</span>
-          </div>
-        `).join('')}
+        <h3 class="tracklist-title">Álbuns e Singles</h3>
+        ${albumItems.length === 0
+          ? '<p style="color:var(--text-muted); padding: 10px 0;">Nenhum álbum disponível para este artista.</p>'
+          : `<div class="music-grid" style="margin-top: 12px;">
+              ${albumItems.map(al => {
+                const cover = al.images?.[0]?.url || 'https://placehold.co/300';
+                const year = al.release_date ? al.release_date.slice(0, 4) : '';
+                const kind = al.album_type === 'single' ? 'Single' : 'Álbum';
+                return `
+                  <div class="music-card" onclick="navigateTo('/album/${al.id}')" style="cursor:pointer;">
+                    <div class="card-image-wrap">
+                      <img src="${cover}" class="card-image" alt="${escapeHTML(al.name)}">
+                    </div>
+                    <div class="card-info">
+                      <span class="card-title">${escapeHTML(al.name)}</span>
+                      <span class="card-artist">${kind}${year ? ' • ' + year : ''}</span>
+                    </div>
+                  </div>`;
+              }).join('')}
+            </div>`
+        }
       </div>
     `;
   }

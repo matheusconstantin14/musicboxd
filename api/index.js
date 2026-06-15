@@ -168,6 +168,21 @@ app.get('/api/spotify/artists/:id/top-tracks', async (req, res) => {
   }
 });
 
+// Discografia do artista (álbuns e singles). Usado na página do artista,
+// já que o endpoint top-tracks é proibido (403) para esta aplicação Spotify.
+app.get('/api/spotify/artists/:id/albums', async (req, res) => {
+  try {
+    const data = await spotifyRequest(`artists/${req.params.id}/albums`, {
+      include_groups: 'album,single',
+      market: req.query.market || 'US',
+      limit: 10 // esta aplicação Spotify rejeita limit > 10
+    });
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+  }
+});
+
 // ==========================================
 // DB COLUMNS MAPPER LAYER (snake_case <-> camelCase)
 // ==========================================
