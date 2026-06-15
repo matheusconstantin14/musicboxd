@@ -106,11 +106,23 @@ app.get('/api/spotify/search', async (req, res) => {
     if (!q) {
       return res.status(400).json({ error: 'Search query parameter "q" is required' });
     }
+
+    // Spotify exige limit como inteiro entre 1 e 50 e offset >= 0.
+    // Sanitizamos qualquer valor inválido (vazio, NaN, fora do intervalo) para evitar "Invalid limit".
+    const parsedLimit = parseInt(limit, 10);
+    const safeLimit = Number.isInteger(parsedLimit)
+      ? Math.min(50, Math.max(1, parsedLimit))
+      : 20;
+    const parsedOffset = parseInt(offset, 10);
+    const safeOffset = Number.isInteger(parsedOffset) && parsedOffset > 0
+      ? Math.min(1000, parsedOffset)
+      : 0;
+
     const data = await spotifyRequest('search', {
-      q,
+      q: String(q).trim(),
       type: type || 'track,album,artist',
-      limit: limit || 20,
-      offset: offset || 0
+      limit: safeLimit,
+      offset: safeOffset
     });
     res.json(data);
   } catch (err) {

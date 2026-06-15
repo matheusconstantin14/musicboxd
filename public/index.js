@@ -624,7 +624,7 @@ async function renderSearchView(container, query) {
     return;
   }
 
-  const results = await apiFetch(`/api/spotify/search?q=${encodeURIComponent(query)}`);
+  const results = await apiFetch(`/api/spotify/search?q=${encodeURIComponent(query.trim())}&type=track,album,artist&limit=20&offset=0`);
 
   const tracks = results.tracks?.items || [];
   const albums = results.albums?.items || [];
