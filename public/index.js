@@ -11,6 +11,8 @@ const STATE = {
   searchDebounceTimer: null,
   activeRating: 0, // Nota selecionada no modal (0.5 - 5.0)
   playlistTracks: [], // Músicas temporárias sendo adicionadas à playlist em edição
+  rankingArtists: [], // Top 5 artistas em edição no modal de ranking
+  rankingTracks: [], // Top 10 músicas em edição no modal de ranking
   socialActiveTab: 'chats', // 'chats' ou 'friends'
   activeChatFriend: null, // username do amigo ativo no chat
   chatPollingInterval: null, // Intervalo do setInterval
@@ -38,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupModalListeners();
   setupStarRatingSelector();
   setupAuthTabSwitching();
+  setupRankingModal();
   
   if (isLoggedIn()) {
     startGlobalMessagePolling();
@@ -969,9 +972,11 @@ async function renderProfileView(container, username) {
   const user = profileData.user;
   const stats = profileData.stats;
 
-  const [reviews, playlists] = await Promise.all([
+  const [reviews, playlists, rankings] = await Promise.all([
     apiFetch(`/api/reviews?username=${username}`),
-    apiFetch(`/api/playlists?username=${username}`)
+    apiFetch(`/api/playlists?username=${username}`),
+    // Resiliente: se a tabela de ranking ainda não existir, o perfil continua carregando.
+    apiFetch(`/api/profile/${username}/rankings`).catch(() => ({ artists: [], tracks: [] }))
   ]);
 
   const maxInDist = Math.max(...Object.values(stats.ratingsDistribution), 1);
@@ -979,6 +984,9 @@ async function renderProfileView(container, username) {
 
   const favTracks = user.favorites?.tracks || [];
   const favAlbums = user.favorites?.albums || [];
+
+  const rankArtists = rankings.artists || [];
+  const rankTracks = rankings.tracks || [];
 
   container.innerHTML = `
     <div class="profile-header-card glassmorphism">
@@ -1043,6 +1051,51 @@ async function renderProfileView(container, username) {
       </div>
     </div>
 
+    <!-- Ranking de Favoritos (Top 5 artistas + Top 10 músicas) -->
+    <div class="favorites-row-section">
+      <div class="section-header" style="margin-top: 0; margin-bottom: 16px;">
+        <h3 class="section-title"><i class="fa-solid fa-ranking-star"></i> Ranking de Favoritos</h3>
+        ${isMe ? '<button class="btn btn-secondary" id="btn-edit-ranking"><i class="fa-solid fa-pencil"></i> Editar Ranking</button>' : ''}
+      </div>
+
+      <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--text-secondary);">Top 5 Artistas</h4>
+      ${rankArtists.length === 0
+        ? `<div class="glassmorphism" style="padding: 20px; text-align:center; color: var(--text-muted); border-radius: var(--border-radius-md); margin-bottom: 28px;">${isMe ? 'Monte seu ranking de artistas clicando em "Editar Ranking".' : 'Nenhum artista no ranking ainda.'}</div>`
+        : `<div class="favorites-grid" style="margin-bottom: 28px;">
+            ${rankArtists.map(a => `
+              <div class="music-card artist-card" onclick="navigateTo('/artist/${a.id}')" style="cursor:pointer; padding:8px;">
+                <div class="card-image-wrap" style="margin-bottom:8px; position:relative;">
+                  <img src="${a.image || 'https://placehold.co/120'}" class="card-image" alt="${escapeHTML(a.name)}">
+                  <span class="ranking-position-badge">${a.position}</span>
+                </div>
+                <div class="card-info" style="align-items:center;">
+                  <span class="card-title" style="font-size:12px;">${escapeHTML(a.name)}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>`
+      }
+
+      <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--text-secondary);">Top 10 Músicas</h4>
+      ${rankTracks.length === 0
+        ? `<div class="glassmorphism" style="padding: 20px; text-align:center; color: var(--text-muted); border-radius: var(--border-radius-md);">${isMe ? 'Monte seu ranking de músicas clicando em "Editar Ranking".' : 'Nenhuma música no ranking ainda.'}</div>`
+        : `<div class="tracklist-container" style="margin-top: 0;">
+            ${rankTracks.map(t => `
+              <div class="track-row" onclick="navigateTo('/track/${t.id}')">
+                <div class="track-row-left">
+                  <span class="track-num ranking-track-num">${t.position}</span>
+                  <img src="${t.image || 'https://placehold.co/80'}" style="width:38px; height:38px; border-radius:4px; object-fit:cover;" alt="${escapeHTML(t.name)}">
+                  <div style="min-width:0;">
+                    <div class="track-name">${escapeHTML(t.name)}</div>
+                    <div style="font-size:11px; color: var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.artist)}</div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>`
+      }
+    </div>
+
     <div class="profile-tabs">
       <button class="tab-btn active" data-profile-tab="reviews">Avaliações (${reviews.length})</button>
       <button class="tab-btn" data-profile-tab="playlists">Playlists (${playlists.length})</button>
@@ -1095,6 +1148,9 @@ async function renderProfileView(container, username) {
   if (isMe) {
     document.getElementById('btn-edit-profile').addEventListener('click', () => {
       openProfileModal(user);
+    });
+    document.getElementById('btn-edit-ranking').addEventListener('click', () => {
+      openRankingModal(rankArtists, rankTracks);
     });
   }
 }
@@ -1595,6 +1651,217 @@ function renderPlaylistTracksEditor() {
     });
 
     container.appendChild(el);
+  });
+}
+
+// ==========================================
+// 6.4 MODAL DE RANKING (Top 5 Artistas + Top 10 Músicas)
+// ==========================================
+
+function openRankingModal(artists, tracks) {
+  // Clona as listas atuais para edição (sem alterar o que está na tela até salvar)
+  STATE.rankingArtists = (artists || []).map(a => ({ id: a.id, name: a.name, artist: a.artist || '', image: a.image || '' }));
+  STATE.rankingTracks = (tracks || []).map(t => ({ id: t.id, name: t.name, artist: t.artist || '', image: t.image || '' }));
+
+  document.getElementById('ranking-artist-search-input').value = '';
+  document.getElementById('ranking-track-search-input').value = '';
+  document.getElementById('ranking-artist-search-results').style.display = 'none';
+  document.getElementById('ranking-track-search-results').style.display = 'none';
+
+  renderRankingEditor('artist');
+  renderRankingEditor('track');
+  openOverlay('ranking-modal');
+}
+
+function moveRankingItem(kind, index, direction) {
+  const list = kind === 'artist' ? STATE.rankingArtists : STATE.rankingTracks;
+  const target = index + direction;
+  if (target < 0 || target >= list.length) return;
+  [list[index], list[target]] = [list[target], list[index]];
+  renderRankingEditor(kind);
+}
+
+function renderRankingEditor(kind) {
+  const isArtist = kind === 'artist';
+  const list = isArtist ? STATE.rankingArtists : STATE.rankingTracks;
+  const container = document.getElementById(isArtist ? 'ranking-artists-container' : 'ranking-tracks-container');
+  const max = isArtist ? 5 : 10;
+
+  container.innerHTML = '';
+
+  if (list.length === 0) {
+    container.innerHTML = `<p class="empty-list-message">Nenhum${isArtist ? ' artista' : 'a música'} no ranking ainda. Use a busca acima (máx. ${max}).</p>`;
+    return;
+  }
+
+  list.forEach((item, index) => {
+    const el = document.createElement('div');
+    el.className = 'playlist-track-row';
+    el.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        <span style="font-size:13px; font-weight:800; color:var(--color-green); width:18px; text-align:right;">${index + 1}</span>
+        <img src="${item.image || 'https://placehold.co/80'}" style="width:32px; height:32px; object-fit:cover; border-radius:${isArtist ? '50%' : '4px'};" alt="Capa">
+        <div style="min-width:0;">
+          <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.name)}</div>
+          ${!isArtist && item.artist ? `<div style="font-size:10px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.artist)}</div>` : ''}
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+        <button type="button" class="playlist-track-remove rank-move-up" data-index="${index}" title="Subir" ${index === 0 ? 'style="opacity:0.3; cursor:default;"' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+        <button type="button" class="playlist-track-remove rank-move-down" data-index="${index}" title="Descer" ${index === list.length - 1 ? 'style="opacity:0.3; cursor:default;"' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+        <button type="button" class="playlist-track-remove rank-remove" data-index="${index}" title="Remover"><i class="fa-solid fa-trash-can"></i></button>
+      </div>
+    `;
+
+    el.querySelector('.rank-move-up').addEventListener('click', () => moveRankingItem(kind, index, -1));
+    el.querySelector('.rank-move-down').addEventListener('click', () => moveRankingItem(kind, index, 1));
+    el.querySelector('.rank-remove').addEventListener('click', () => {
+      list.splice(index, 1);
+      renderRankingEditor(kind);
+    });
+
+    container.appendChild(el);
+  });
+}
+
+function renderRankingSearchResults(kind, items) {
+  const isArtist = kind === 'artist';
+  const container = document.getElementById(isArtist ? 'ranking-artist-search-results' : 'ranking-track-search-results');
+  const inputEl = document.getElementById(isArtist ? 'ranking-artist-search-input' : 'ranking-track-search-input');
+  const list = isArtist ? STATE.rankingArtists : STATE.rankingTracks;
+  const max = isArtist ? 5 : 10;
+
+  container.innerHTML = '';
+
+  if (!items || items.length === 0) {
+    container.innerHTML = `<div class="autocomplete-item"><p style="color:var(--text-muted); font-size:12px;">Nenhum resultado</p></div>`;
+    container.style.display = 'block';
+    return;
+  }
+
+  items.forEach(raw => {
+    let entry;
+    if (isArtist) {
+      entry = {
+        id: raw.id,
+        name: raw.name,
+        artist: '',
+        image: raw.images?.[0]?.url || 'https://placehold.co/80'
+      };
+    } else {
+      entry = {
+        id: raw.id,
+        name: raw.name,
+        artist: (raw.artists || []).map(a => a.name).join(', '),
+        image: raw.album?.images?.[0]?.url || 'https://placehold.co/80'
+      };
+    }
+
+    const el = document.createElement('div');
+    el.className = 'autocomplete-item';
+    el.innerHTML = `
+      <img src="${entry.image}" class="autocomplete-cover ${isArtist ? 'artist-round' : ''}" alt="${escapeHTML(entry.name)}">
+      <div class="autocomplete-info">
+        <div class="autocomplete-name" style="font-size:13px;">${escapeHTML(entry.name)}</div>
+        ${entry.artist ? `<div class="autocomplete-sub" style="font-size:11px;">${escapeHTML(entry.artist)}</div>` : ''}
+      </div>
+    `;
+
+    el.addEventListener('click', () => {
+      container.style.display = 'none';
+      inputEl.value = '';
+
+      if (list.some(i => i.id === entry.id)) {
+        showToast('Esse item já está no seu ranking.', 'info');
+        return;
+      }
+      if (list.length >= max) {
+        showToast(`Você só pode rankear até ${max} ${isArtist ? 'artistas' : 'músicas'}.`, 'warning');
+        return;
+      }
+
+      list.push(entry);
+      renderRankingEditor(kind);
+    });
+
+    container.appendChild(el);
+  });
+
+  container.style.display = 'block';
+}
+
+function setupRankingModal() {
+  const artistInput = document.getElementById('ranking-artist-search-input');
+  const trackInput = document.getElementById('ranking-track-search-input');
+  if (!artistInput || !trackInput) return;
+
+  let artistTimer, trackTimer;
+
+  artistInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    clearTimeout(artistTimer);
+    const results = document.getElementById('ranking-artist-search-results');
+    if (!query) { results.style.display = 'none'; return; }
+
+    artistTimer = setTimeout(async () => {
+      try {
+        const data = await apiFetch(`/api/spotify/search?q=${encodeURIComponent(query)}&type=artist&limit=5`);
+        renderRankingSearchResults('artist', data.artists?.items || []);
+      } catch (err) {
+        results.style.display = 'none';
+      }
+    }, 300);
+  });
+
+  trackInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    clearTimeout(trackTimer);
+    const results = document.getElementById('ranking-track-search-results');
+    if (!query) { results.style.display = 'none'; return; }
+
+    trackTimer = setTimeout(async () => {
+      try {
+        const data = await apiFetch(`/api/spotify/search?q=${encodeURIComponent(query)}&type=track&limit=5`);
+        renderRankingSearchResults('track', data.tracks?.items || []);
+      } catch (err) {
+        results.style.display = 'none';
+      }
+    }, 300);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#ranking-artist-search-input') && !e.target.closest('#ranking-artist-search-results')) {
+      document.getElementById('ranking-artist-search-results').style.display = 'none';
+    }
+    if (!e.target.closest('#ranking-track-search-input') && !e.target.closest('#ranking-track-search-results')) {
+      document.getElementById('ranking-track-search-results').style.display = 'none';
+    }
+  });
+
+  document.getElementById('ranking-modal-close').addEventListener('click', () => closeOverlay('ranking-modal'));
+  document.getElementById('ranking-cancel-btn').addEventListener('click', () => closeOverlay('ranking-modal'));
+
+  document.getElementById('ranking-save-btn').addEventListener('click', async () => {
+    if (!isLoggedIn()) {
+      showToast('Conecte-se para editar seu ranking.', 'warning');
+      return;
+    }
+
+    try {
+      await apiFetch(`/api/profile/${STATE.currentUser.username}/rankings`, {
+        method: 'POST',
+        body: JSON.stringify({
+          artists: STATE.rankingArtists,
+          tracks: STATE.rankingTracks
+        })
+      });
+
+      closeOverlay('ranking-modal');
+      showToast('Ranking salvo no Supabase!', 'success');
+      renderView(STATE.currentView, STATE.routeParams);
+    } catch (err) {
+      // apiFetch já mostra o toast de erro
+    }
   });
 }
 

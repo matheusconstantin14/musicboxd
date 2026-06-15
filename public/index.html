@@ -305,6 +305,52 @@
     </div>
   </div>
 
+  <!-- 6. Modal de Editar Ranking (Top 5 Artistas + Top 10 Músicas) -->
+  <div class="modal-overlay" id="ranking-modal">
+    <div class="modal-box glassmorphism scale-up">
+      <button class="modal-close" id="ranking-modal-close"><i class="fa-solid fa-xmark"></i></button>
+
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-ranking-star"></i> Editar Meu Ranking</h3>
+      </div>
+
+      <div class="modal-body">
+        <!-- Top 5 Artistas -->
+        <div class="playlist-manager-tracks">
+          <label class="form-label"><i class="fa-solid fa-microphone-lines"></i> Top 5 Artistas Favoritos</label>
+          <div class="playlist-add-track-search">
+            <i class="fa-solid fa-plus add-icon"></i>
+            <input type="text" id="ranking-artist-search-input" placeholder="Pesquisar artista para adicionar..."
+              autocomplete="off">
+            <div id="ranking-artist-search-results" class="search-autocomplete"></div>
+          </div>
+          <div class="playlist-added-list" id="ranking-artists-container">
+            <p class="empty-list-message">Nenhum artista no ranking ainda.</p>
+          </div>
+        </div>
+
+        <!-- Top 10 Músicas -->
+        <div class="playlist-manager-tracks" style="margin-top: 20px;">
+          <label class="form-label"><i class="fa-solid fa-music"></i> Top 10 Músicas Favoritas</label>
+          <div class="playlist-add-track-search">
+            <i class="fa-solid fa-plus add-icon"></i>
+            <input type="text" id="ranking-track-search-input" placeholder="Pesquisar música para adicionar..."
+              autocomplete="off">
+            <div id="ranking-track-search-results" class="search-autocomplete"></div>
+          </div>
+          <div class="playlist-added-list" id="ranking-tracks-container">
+            <p class="empty-list-message">Nenhuma música no ranking ainda.</p>
+          </div>
+        </div>
+
+        <div class="form-actions" style="margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" id="ranking-cancel-btn">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="ranking-save-btn">Salvar Ranking</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Container de Toasts (Notificações Flutuantes) -->
   <div class="toast-container" id="toast-container"></div>
 

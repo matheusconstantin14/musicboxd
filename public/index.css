@@ -1194,6 +1194,29 @@ button {
   border-bottom-color: var(--color-green);
 }
 
+/* Ranking de Favoritos (badge de posição e número da faixa) */
+.ranking-position-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--color-green);
+  color: #000000;
+  font-weight: 800;
+  font-size: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+.ranking-track-num {
+  color: var(--color-green) !important;
+  font-weight: 800;
+  font-size: 14px;
+}
+
 /* Favoritos dos Perfis (Sleek row overlay) */
 .favorites-row-section {
   margin-bottom: 35px;

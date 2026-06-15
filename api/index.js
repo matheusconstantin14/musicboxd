@@ -436,6 +436,104 @@ app.post('/api/profile/:username/favorites', async (req, res) => {
 });
 
 // ==========================================
+// RANKING DE FAVORITOS (Top 5 artistas + Top 10 músicas)
+// ==========================================
+
+// Get user's favorite ranking (ordenado por posição)
+app.get('/api/profile/:username/rankings', async (req, res) => {
+  const cleanUsername = req.params.username.trim().toLowerCase();
+
+  try {
+    const { data, error } = await supabase
+      .from('favorite_rankings')
+      .select('*')
+      .eq('username', cleanUsername)
+      .order('position', { ascending: true });
+
+    if (error) throw error;
+
+    const rows = data || [];
+    const mapRow = (r) => ({
+      id: r.spotify_id,
+      name: r.name,
+      artist: r.artist || '',
+      image: r.image || '',
+      position: r.position
+    });
+
+    res.json({
+      artists: rows.filter(r => r.kind === 'artist').map(mapRow),
+      tracks: rows.filter(r => r.kind === 'track').map(mapRow)
+    });
+  } catch (err) {
+    console.error('Rankings Retrieval Error:', err);
+    res.status(500).json({ error: 'Erro ao carregar o ranking de favoritos.' });
+  }
+});
+
+// Save (replace) user's favorite ranking
+app.post('/api/profile/:username/rankings', async (req, res) => {
+  const cleanUsername = req.params.username.trim().toLowerCase();
+  const { artists, tracks } = req.body;
+
+  // Converte uma lista ordenada do cliente em linhas para o banco,
+  // respeitando o máximo permitido (5 artistas, 10 músicas) e a posição = índice + 1.
+  const buildRows = (list, kind, max) => {
+    if (!Array.isArray(list)) return [];
+    return list
+      .slice(0, max)
+      .map((item, idx) => ({
+        username: cleanUsername,
+        kind,
+        position: idx + 1,
+        spotify_id: item.id,
+        name: item.name,
+        artist: item.artist || '',
+        image: item.image || ''
+      }))
+      .filter(r => r.spotify_id && r.name);
+  };
+
+  const rows = [
+    ...buildRows(artists, 'artist', 5),
+    ...buildRows(tracks, 'track', 10)
+  ];
+
+  try {
+    const { data: user, error: userErr } = await supabase
+      .from('users')
+      .select('username')
+      .eq('username', cleanUsername)
+      .single();
+
+    if (userErr || !user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Estratégia "substituir lista inteira": apaga o ranking atual e reinsere o novo.
+    const { error: delErr } = await supabase
+      .from('favorite_rankings')
+      .delete()
+      .eq('username', cleanUsername);
+
+    if (delErr) throw delErr;
+
+    if (rows.length > 0) {
+      const { error: insErr } = await supabase
+        .from('favorite_rankings')
+        .insert(rows);
+
+      if (insErr) throw insErr;
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Rankings Save Error:', err);
+    res.status(500).json({ error: 'Erro ao salvar o ranking de favoritos.' });
+  }
+});
+
+// ==========================================
 // SUPABASE LOCAL REVIEWS APIs (CRUD)
 // ==========================================
 
